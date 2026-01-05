@@ -1,0 +1,91 @@
+﻿body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+}
+
+    body.light {
+        --table-bg: #c49a6c;
+        --card-bg: #fff;
+        --card-fg: #000;
+    }
+
+    body.dark {
+        --table-bg: #3a2a1a;
+        --card-bg: #000;
+        --card-fg: #fff;
+    }
+
+#app {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    height: 100vh;
+}
+
+#table {
+    position: relative;
+    background: radial-gradient(circle, #d2a679, var(--table-bg));
+}
+
+.played {
+    position: absolute;
+    min-width: 200px;
+    min-height: 120px;
+}
+
+.north {
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.south {
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.west {
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.east {
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+#kitty {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+}
+
+.card {
+    width: 48px;
+    height: 68px;
+    margin: 2px;
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--card-fg);
+    border: 1px solid #444;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+}
+
+#hand {
+    padding: 8px;
+    background: #222;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+#sidebar {
+    padding: 12px;
+    background: #111;
+    color: #eee;
+}
