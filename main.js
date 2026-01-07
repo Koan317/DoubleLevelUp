@@ -1,8 +1,8 @@
-﻿import { startGame } from "./game.js";
+﻿// main.js
 
 document.getElementById("themeToggle").onclick = () => {
   document.body.classList.toggle("dark");
   document.body.classList.toggle("light");
 };
 
-startGame();
+Game.startGame();
