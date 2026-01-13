@@ -2,16 +2,21 @@
 
 window.Render = (function () {
 
-  function renderHand(hand, state, onSelect, selectedCards = []) {
+  function renderHand(hand, state, onSelect, selectedCards = [], options = {}) {
     const el = document.getElementById("hand");
     el.innerHTML = "";
     const selectedSet = new Set(selectedCards);
+    const { animateDeal = false } = options;
 
     hand
       .slice()
       .sort((a, b) => sortHandCards(a, b, state))
-      .forEach(card => {
+      .forEach((card, index) => {
         const c = createCardElement(card);
+        if (animateDeal) {
+          c.classList.add("deal");
+          c.style.animationDelay = `${index * 20}ms`;
+        }
         if (selectedSet.has(card)) {
           c.classList.add("selected");
         }
@@ -42,6 +47,27 @@ window.Render = (function () {
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
       `主牌：${mainCard}\n主花色：${trumpSuit}\n${banker}\n得分方得分：${state.score}\n庄家等级：${bankerLevel}\n闲家等级：${scoreLevel}`;
+  }
+
+  function renderTrumpActions(actions, phase, onReveal) {
+    const el = document.getElementById("trump-actions");
+    if (!el) return;
+    const shouldShow = phase === "reveal" || phase === "twist";
+    el.classList.toggle("hidden", !shouldShow);
+    el.innerHTML = "";
+    if (!shouldShow) return;
+
+    actions.forEach(action => {
+      const button = document.createElement("button");
+      button.className = `trump-action ${action.color}`.trim();
+      button.textContent = action.label;
+      if (!action.enabled) {
+        button.classList.add("disabled");
+      } else {
+        button.onclick = () => onReveal(action.key);
+      }
+      el.appendChild(button);
+    });
   }
 
   function sortHandCards(a, b, state) {
@@ -82,12 +108,12 @@ window.Render = (function () {
 
   function cardDisplay(card) {
     if (card.suit === "JOKER") {
-      const rankName = card.rank === "BJ" ? "大王" : "小王";
+      const rankName = card.rank === "BJ" || card.rank === "大王" ? "大王" : "小王";
       return {
         rank: rankName,
         suit: "",
         center: rankName,
-        isRed: card.rank !== "BJ"
+        isRed: true
       };
     }
 
@@ -103,7 +129,8 @@ window.Render = (function () {
   return {
     renderHand,
     renderTrick,
-    renderStatus
+    renderStatus,
+    renderTrumpActions
   };
 
 })();

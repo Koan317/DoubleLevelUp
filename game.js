@@ -15,9 +15,13 @@ window.Game = (function () {
     bankerLevel: null,
     scoreLevel: null,
     selectedCards: [],
+    phase: "play",
+    round: 0,
   };
 
   function startGame() {
+    const isFirstRound = state.round === 0;
+    state.round += 1;
     const deck = Cards.createDeck();
     Cards.shuffle(deck);
 
@@ -28,9 +32,13 @@ window.Game = (function () {
     determineTrump();
     state.bankerLevel = state.level;
     state.scoreLevel = state.level;
+    state.phase = state.trumpSuit ? "twist" : "reveal";
 
     state.selectedCards = [];
-    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
+      animateDeal: isFirstRound
+    });
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
     Render.renderStatus(state);
   }
 
@@ -128,6 +136,49 @@ window.Game = (function () {
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
   }
 
+  function onHumanReveal(key) {
+    if (state.phase !== "reveal" && state.phase !== "twist") return;
+    if (key === "BJ" || key === "SJ") {
+      state.trumpSuit = null;
+    } else {
+      state.trumpSuit = key;
+    }
+    state.phase = "play";
+    state.selectedCards = [];
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+    Render.renderStatus(state);
+  }
+
+  function buildTrumpActions() {
+    const hand = state.players[0] || [];
+    const hasBigJoker = hand.filter(card => isBigJoker(card)).length >= 2;
+    const hasSmallJoker = hand.filter(card => isSmallJoker(card)).length >= 2;
+    const hasAnyJoker = hand.some(card => isBigJoker(card) || isSmallJoker(card));
+    const levelCardsBySuit = new Set(
+      hand.filter(card => card.rank === state.level).map(card => card.suit)
+    );
+
+    const canRevealSuit = suit => hasAnyJoker && levelCardsBySuit.has(suit);
+
+    return [
+      { key: "BJ", label: "大王", color: "red", enabled: hasBigJoker },
+      { key: "SJ", label: "小王", color: "red", enabled: hasSmallJoker },
+      { key: "♠", label: "♠", color: "black", enabled: canRevealSuit("♠") },
+      { key: "♥", label: "♥", color: "red", enabled: canRevealSuit("♥") },
+      { key: "♣", label: "♣", color: "black", enabled: canRevealSuit("♣") },
+      { key: "♦", label: "♦", color: "red", enabled: canRevealSuit("♦") }
+    ];
+  }
+
+  function isBigJoker(card) {
+    return card.suit === "JOKER" && (card.rank === "BJ" || card.rank === "大王");
+  }
+
+  function isSmallJoker(card) {
+    return card.suit === "JOKER" && (card.rank === "SJ" || card.rank === "小王");
+  }
+
   function tryPlay(playerIndex, cards) {
     const leadPattern = state.currentTrick[0]?.pattern || null;
 
@@ -151,6 +202,11 @@ window.Game = (function () {
 
   function commitPlay(playerIndex, cards) {
     const pattern = Pattern.analyzePlay(cards, state);
+
+    if (state.phase !== "play") {
+      state.phase = "play";
+      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+    }
 
     state.currentTrick.push({
       player: playerIndex,
@@ -195,6 +251,7 @@ window.Game = (function () {
 
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
     Render.renderStatus(state);
   }
 

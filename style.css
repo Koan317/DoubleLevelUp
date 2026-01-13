@@ -82,11 +82,50 @@
 
 #hand-actions {
     position: absolute;
-    bottom: 150px;
+    bottom: 160px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     gap: 8px;
+    align-items: center;
+}
+
+#trump-actions {
+    display: flex;
+    gap: 4px;
+}
+
+#trump-actions.hidden {
+    display: none;
+}
+
+.trump-action {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.45);
+    background: rgba(255, 255, 255, 0.85);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+}
+
+.trump-action.red {
+    color: #c0392b;
+}
+
+.trump-action.black {
+    color: #222;
+}
+
+.trump-action.disabled {
+    color: #9a9a9a;
+    border-color: rgba(0, 0, 0, 0.2);
+    cursor: default;
 }
 
 #hand-actions button {
@@ -161,7 +200,6 @@
     align-items: flex-end;
     padding: 8px 16px;
     border-radius: 12px;
-    background: rgba(0, 0, 0, 0.3);
     max-width: 90%;
     overflow: hidden;
 }
@@ -178,6 +216,21 @@
 #hand .card.selected {
     transform: translateY(-12px);
     box-shadow: 0 6px 10px rgba(0, 0, 0, 0.45);
+}
+
+#hand .card.deal {
+    animation: deal-in 0.3s ease-out both;
+}
+
+@keyframes deal-in {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 #sidebar {
