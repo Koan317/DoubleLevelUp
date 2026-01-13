@@ -49,13 +49,14 @@ window.Render = (function () {
   }
 
   function renderStatus(state) {
-    const trumpSuit = state.trumpSuit ? state.trumpSuit : "无花色主";
-    const banker = state.bankerTeam.length ? `庄：${state.bankerTeam.join(",")}` : "庄：未定";
+    const banker = state.bankerTeam.length
+      ? `庄：${state.bankerTeam.includes(0) ? "南北家" : "东西家"}`
+      : "庄：未定";
     const mainCard = state.trumpSuit ? `${state.trumpSuit}${state.level}` : `无主${state.level}`;
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
-      `主牌：${mainCard}\n主花色：${trumpSuit}\n${banker}\n得分方得分：${state.score}\n队伍A等级：${bankerLevel}\n队伍B等级：${scoreLevel}`;
+      `主：${mainCard}\n${banker}\n得分：${state.score}\n队伍A等级：${bankerLevel}\n队伍B等级：${scoreLevel}`;
   }
 
   function renderTrumpActions(actions, phase, onReveal) {
