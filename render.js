@@ -55,7 +55,7 @@ window.Render = (function () {
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
-      `主牌：${mainCard}\n主花色：${trumpSuit}\n${banker}\n得分方得分：${state.score}\n庄家等级：${bankerLevel}\n闲家等级：${scoreLevel}`;
+      `主牌：${mainCard}\n主花色：${trumpSuit}\n${banker}\n得分方得分：${state.score}\n队伍A等级：${bankerLevel}\n队伍B等级：${scoreLevel}`;
   }
 
   function renderTrumpActions(actions, phase, onReveal) {
@@ -118,12 +118,12 @@ window.Render = (function () {
 
   function cardDisplay(card) {
     if (card.suit === "JOKER") {
-      const isBigJoker = card.rank === "BJ" || card.rank === "大王";
-      const rankName = isBigJoker ? "大王" : "小王";
+      const isBigJoker = card.rank === "BJ";
+      const rankName = "JOKER";
       return {
         rank: rankName,
         suit: "",
-        center: rankName,
+        center: "🤡",
         isRed: isBigJoker
       };
     }
