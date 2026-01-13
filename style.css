@@ -16,14 +16,19 @@
     }
 
 #app {
-    display: grid;
-    grid-template-columns: 1fr 300px;
+    display: flex;
     height: 100vh;
+}
+
+#play-area {
+    flex: 1 1 75%;
+    min-width: 0;
 }
 
 #table {
     position: relative;
     background: radial-gradient(circle, #d2a679, var(--table-bg));
+    height: 100%;
 }
 
 .played {
@@ -39,7 +44,7 @@
 }
 
 .south {
-    bottom: 120px;
+    bottom: 200px;
     left: 50%;
     transform: translateX(-50%);
 }
@@ -64,28 +69,89 @@
 }
 
 .card {
-    width: 48px;
-    height: 68px;
-    margin: 2px;
-    border-radius: 6px;
+    width: 72px;
+    height: 104px;
+    margin: 4px;
+    border-radius: 8px;
     background: var(--card-bg);
     color: var(--card-fg);
     border: 1px solid #444;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
     font-weight: bold;
 }
 
+.card .corner {
+    position: absolute;
+    font-size: 14px;
+    line-height: 1.1;
+    text-align: center;
+}
+
+.card .corner.top {
+    top: 6px;
+    left: 6px;
+}
+
+.card .corner.bottom {
+    bottom: 6px;
+    right: 6px;
+    transform: rotate(180deg);
+}
+
+.card .center {
+    font-size: 32px;
+}
+
+.card.red {
+    color: #d43c3c;
+}
+
+.card.red .rank,
+.card.red .suit,
+.card.red .center {
+    color: #d43c3c;
+}
+
 #hand {
-    padding: 8px;
-    background: #222;
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: 8px 16px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    max-width: 90%;
+    overflow: hidden;
+}
+
+#hand .card {
+    margin-left: -40px;
+}
+
+#hand .card:first-child {
+    margin-left: 0;
 }
 
 #sidebar {
+    flex: 0 0 25%;
+    max-width: 360px;
+    min-width: 240px;
     padding: 12px;
     background: #111;
     color: #eee;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#status {
+    white-space: pre-line;
+    font-size: 16px;
 }

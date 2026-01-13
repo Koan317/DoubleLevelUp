@@ -11,6 +11,9 @@ window.Game = (function () {
     kitty: [],
     bankerTeam: [],
     scoreTeam: [],
+    trumpReveal: null,
+    bankerLevel: null,
+    scoreLevel: null,
   };
 
   function startGame() {
@@ -21,9 +24,87 @@ window.Game = (function () {
       state.players[i % 4].push(deck.pop());
     }
     state.kitty = deck.slice(); // 8 张底牌
+    determineTrump();
+    state.bankerLevel = state.level;
+    state.scoreLevel = state.level;
 
-    Render.renderHand(state.players[0], onHumanPlay);
+    Render.renderHand(state.players[0], state, onHumanPlay);
     Render.renderStatus(state);
+  }
+
+  function determineTrump() {
+    const candidates = [];
+    state.players.forEach((hand, index) => {
+      findRevealsForHand(hand).forEach(candidate => {
+        candidates.push({
+          player: index,
+          cards: candidate.cards,
+          reveal: candidate.reveal
+        });
+      });
+    });
+
+    let best = null;
+    candidates.forEach(candidate => {
+      if (!candidate.reveal) return;
+      if (!best || Trump.canOverride(candidate.reveal, best.reveal)) {
+        best = candidate;
+      }
+    });
+
+    if (best) {
+      state.trumpSuit = best.reveal.trumpSuit;
+      state.trumpReveal = best;
+      state.bankerTeam = best.player % 2 === 0 ? [0, 2] : [1, 3];
+      state.scoreTeam = best.player % 2 === 0 ? [1, 3] : [0, 2];
+    }
+  }
+
+  function findRevealsForHand(hand) {
+    const level = state.level;
+    const reveals = [];
+    const bigJokers = hand.filter(card => card.rank === "大王");
+    const smallJokers = hand.filter(card => card.rank === "小王");
+    const levelBySuit = {};
+
+    hand.forEach(card => {
+      if (card.rank !== level) return;
+      if (!levelBySuit[card.suit]) {
+        levelBySuit[card.suit] = [];
+      }
+      levelBySuit[card.suit].push(card);
+    });
+
+    if (bigJokers.length >= 2) {
+      reveals.push({
+        cards: [bigJokers[0], bigJokers[1]],
+        reveal: Trump.analyzeReveal([bigJokers[0], bigJokers[1]], level)
+      });
+    }
+
+    if (smallJokers.length >= 2) {
+      reveals.push({
+        cards: [smallJokers[0], smallJokers[1]],
+        reveal: Trump.analyzeReveal([smallJokers[0], smallJokers[1]], level)
+      });
+    }
+
+    const joker = bigJokers[0] || smallJokers[0];
+    if (joker) {
+      Object.keys(levelBySuit).forEach(suit => {
+        const levels = levelBySuit[suit];
+        if (!levels.length) return;
+        const cards = levels.length >= 2
+          ? [joker, levels[0], levels[1]]
+          : [joker, levels[0]];
+        reveals.push({
+          cards,
+          reveal: Trump.analyzeReveal(cards, level)
+        });
+      });
+    }
+
+    return reveals;
   }
 
   function onHumanPlay(cards) {
@@ -94,7 +175,7 @@ window.Game = (function () {
     state.turn = winner;
     state.currentTrick = [];
 
-    Render.renderHand(state.players[0], onHumanPlay);
+    Render.renderHand(state.players[0], state, onHumanPlay);
     Render.renderStatus(state);
   }
 
