@@ -35,7 +35,7 @@ window.Game = (function () {
     state.trumpReveal = null;
     state.bankerTeam = [];
     state.scoreTeam = [];
-    state.phase = "reveal";
+    state.phase = isFirstRound ? "dealing" : "reveal";
 
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
@@ -157,6 +157,7 @@ window.Game = (function () {
   }
 
   function onHumanSelect(card) {
+    if (state.phase === "dealing") return;
     const index = state.selectedCards.indexOf(card);
     if (index >= 0) {
       state.selectedCards.splice(index, 1);
@@ -176,7 +177,7 @@ window.Game = (function () {
   }
 
   function onHumanReveal(key) {
-    if (state.phase !== "reveal" && state.phase !== "twist") return;
+    if (state.phase !== "reveal" && state.phase !== "twist" && state.phase !== "dealing") return;
     const reveal = findHumanReveal(key);
     if (!reveal) return;
     if (state.trumpReveal && !isFirstRound() && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
@@ -206,22 +207,34 @@ window.Game = (function () {
     const canRevealSuitFirstRound = suit =>
       levelCardsBySuit.has(suit) && (isRedSuit(suit) ? hasRedJoker : hasBlackJoker);
 
-    if (isFirstRound()) {
-      return [
-        { key: "♠", label: "♠", color: "black", enabled: canRevealSuitFirstRound("♠") },
-        { key: "♥", label: "♥", color: "red", enabled: canRevealSuitFirstRound("♥") },
-        { key: "♣", label: "♣", color: "black", enabled: canRevealSuitFirstRound("♣") },
-        { key: "♦", label: "♦", color: "red", enabled: canRevealSuitFirstRound("♦") }
-      ];
-    }
-
+    const isFirst = isFirstRound();
     return [
-      { key: "BJ", label: "RED JOKER", color: "red", enabled: hasBigJoker },
-      { key: "SJ", label: "BLACK JOKER", color: "black", enabled: hasSmallJoker },
-      { key: "♠", label: "♠", color: "black", enabled: canRevealSuit("♠") },
-      { key: "♥", label: "♥", color: "red", enabled: canRevealSuit("♥") },
-      { key: "♣", label: "♣", color: "black", enabled: canRevealSuit("♣") },
-      { key: "♦", label: "♦", color: "red", enabled: canRevealSuit("♦") }
+      { key: "BJ", label: "RED JOKER", color: "red", enabled: !isFirst && hasBigJoker },
+      { key: "SJ", label: "BLACK JOKER", color: "black", enabled: !isFirst && hasSmallJoker },
+      {
+        key: "♠",
+        label: "♠",
+        color: "black",
+        enabled: isFirst ? canRevealSuitFirstRound("♠") : canRevealSuit("♠")
+      },
+      {
+        key: "♥",
+        label: "♥",
+        color: "red",
+        enabled: isFirst ? canRevealSuitFirstRound("♥") : canRevealSuit("♥")
+      },
+      {
+        key: "♣",
+        label: "♣",
+        color: "black",
+        enabled: isFirst ? canRevealSuitFirstRound("♣") : canRevealSuit("♣")
+      },
+      {
+        key: "♦",
+        label: "♦",
+        color: "red",
+        enabled: isFirst ? canRevealSuitFirstRound("♦") : canRevealSuit("♦")
+      }
     ];
   }
 

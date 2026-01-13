@@ -61,18 +61,21 @@ window.Render = (function () {
   function renderTrumpActions(actions, phase, onReveal) {
     const el = document.getElementById("trump-actions");
     if (!el) return;
-    const shouldShow = phase === "reveal" || phase === "twist";
+    const shouldShow = phase === "reveal" || phase === "twist" || phase === "dealing";
     el.classList.toggle("hidden", !shouldShow);
     el.innerHTML = "";
     if (!shouldShow) return;
 
     actions.forEach(action => {
       const button = document.createElement("button");
-      button.className = `trump-action ${action.color}`.trim();
+      button.className = "trump-action";
       button.textContent = action.label;
       if (!action.enabled) {
         button.classList.add("disabled");
       } else {
+        if (action.color) {
+          button.classList.add(action.color);
+        }
         button.classList.add("enabled");
         button.onclick = () => onReveal(action.key);
       }
