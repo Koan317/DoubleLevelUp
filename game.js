@@ -163,7 +163,7 @@ window.Game = (function () {
 
     return [
       { key: "BJ", label: "大王", color: "red", enabled: hasBigJoker },
-      { key: "SJ", label: "小王", color: "red", enabled: hasSmallJoker },
+      { key: "SJ", label: "小王", color: "black", enabled: hasSmallJoker },
       { key: "♠", label: "♠", color: "black", enabled: canRevealSuit("♠") },
       { key: "♥", label: "♥", color: "red", enabled: canRevealSuit("♥") },
       { key: "♣", label: "♣", color: "black", enabled: canRevealSuit("♣") },

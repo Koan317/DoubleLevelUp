@@ -92,7 +92,7 @@
 
 #trump-actions {
     display: flex;
-    gap: 4px;
+    gap: 0;
 }
 
 #trump-actions.hidden {
@@ -102,7 +102,7 @@
 .trump-action {
     width: 28px;
     height: 28px;
-    border-radius: 6px;
+    border-radius: 0;
     border: 1px solid rgba(0, 0, 0, 0.45);
     background: rgba(255, 255, 255, 0.85);
     display: inline-flex;
@@ -112,6 +112,10 @@
     font-weight: 700;
     cursor: pointer;
     padding: 0;
+}
+
+.trump-action + .trump-action {
+    margin-left: 2px;
 }
 
 .trump-action.red {
@@ -125,7 +129,13 @@
 .trump-action.disabled {
     color: #9a9a9a;
     border-color: rgba(0, 0, 0, 0.2);
+    background: rgba(180, 180, 180, 0.8);
     cursor: default;
+}
+
+.trump-action.enabled {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
 }
 
 #hand-actions button {
@@ -219,7 +229,7 @@
 }
 
 #hand .card.deal {
-    animation: deal-in 0.3s ease-out both;
+    animation: deal-in 0.75s ease-out both;
 }
 
 @keyframes deal-in {

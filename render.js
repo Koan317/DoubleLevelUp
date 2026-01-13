@@ -7,15 +7,24 @@ window.Render = (function () {
     el.innerHTML = "";
     const selectedSet = new Set(selectedCards);
     const { animateDeal = false } = options;
+    const dealIndexByCard = new Map();
+
+    if (animateDeal) {
+      hand.forEach((card, index) => {
+        dealIndexByCard.set(card, index);
+      });
+    }
 
     hand
       .slice()
       .sort((a, b) => sortHandCards(a, b, state))
-      .forEach((card, index) => {
+      .forEach(card => {
         const c = createCardElement(card);
         if (animateDeal) {
           c.classList.add("deal");
-          c.style.animationDelay = `${index * 20}ms`;
+          const dealIndex = dealIndexByCard.get(card) ?? 0;
+          c.style.animationDelay = `${dealIndex * 0.75}s`;
+          c.style.animationDuration = "0.75s";
         }
         if (selectedSet.has(card)) {
           c.classList.add("selected");
@@ -64,6 +73,7 @@ window.Render = (function () {
       if (!action.enabled) {
         button.classList.add("disabled");
       } else {
+        button.classList.add("enabled");
         button.onclick = () => onReveal(action.key);
       }
       el.appendChild(button);
@@ -108,12 +118,13 @@ window.Render = (function () {
 
   function cardDisplay(card) {
     if (card.suit === "JOKER") {
-      const rankName = card.rank === "BJ" || card.rank === "大王" ? "大王" : "小王";
+      const isBigJoker = card.rank === "BJ" || card.rank === "大王";
+      const rankName = isBigJoker ? "大王" : "小王";
       return {
         rank: rankName,
         suit: "",
         center: rankName,
-        isRed: true
+        isRed: isBigJoker
       };
     }
 
