@@ -14,6 +14,7 @@ window.Game = (function () {
     trumpReveal: null,
     bankerLevel: null,
     scoreLevel: null,
+    selectedCards: [],
   };
 
   function startGame() {
@@ -28,7 +29,8 @@ window.Game = (function () {
     state.bankerLevel = state.level;
     state.scoreLevel = state.level;
 
-    Render.renderHand(state.players[0], state, onHumanPlay);
+    state.selectedCards = [];
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
     Render.renderStatus(state);
   }
 
@@ -107,8 +109,23 @@ window.Game = (function () {
     return reveals;
   }
 
-  function onHumanPlay(cards) {
-    tryPlay(0, cards);
+  function onHumanSelect(card) {
+    const index = state.selectedCards.indexOf(card);
+    if (index >= 0) {
+      state.selectedCards.splice(index, 1);
+    } else {
+      state.selectedCards.push(card);
+    }
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+  }
+
+  function onHumanPlaySelected() {
+    if (!state.selectedCards.length) return;
+    const cards = state.selectedCards.slice();
+    const ok = tryPlay(0, cards);
+    if (!ok) return;
+    state.selectedCards = [];
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
   }
 
   function tryPlay(playerIndex, cards) {
@@ -124,11 +141,12 @@ window.Game = (function () {
       });
       if (!check.ok) {
         alert(check.reason);
-        return;
+        return false;
       }
     }
 
     commitPlay(playerIndex, cards);
+    return true;
   }
 
   function commitPlay(playerIndex, cards) {
@@ -175,12 +193,14 @@ window.Game = (function () {
     state.turn = winner;
     state.currentTrick = [];
 
-    Render.renderHand(state.players[0], state, onHumanPlay);
+    state.selectedCards = [];
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
     Render.renderStatus(state);
   }
 
   return {
     startGame,
+    playSelected: onHumanPlaySelected,
     state
   };
 

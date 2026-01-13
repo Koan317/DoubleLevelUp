@@ -68,6 +68,30 @@
     display: flex;
 }
 
+#hand-actions {
+    position: absolute;
+    bottom: 150px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+}
+
+#hand-actions button {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: none;
+    background: #f5d76e;
+    color: #222;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+#hand-actions button:hover {
+    background: #f2c94c;
+}
+
 .card {
     width: 72px;
     height: 104px;
@@ -132,10 +156,16 @@
 
 #hand .card {
     margin-left: -40px;
+    cursor: pointer;
 }
 
 #hand .card:first-child {
     margin-left: 0;
+}
+
+#hand .card.selected {
+    transform: translateY(-12px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.45);
 }
 
 #sidebar {

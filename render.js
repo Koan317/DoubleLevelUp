@@ -2,16 +2,20 @@
 
 window.Render = (function () {
 
-  function renderHand(hand, state, onPlay) {
+  function renderHand(hand, state, onSelect, selectedCards = []) {
     const el = document.getElementById("hand");
     el.innerHTML = "";
+    const selectedSet = new Set(selectedCards);
 
     hand
       .slice()
       .sort((a, b) => sortHandCards(a, b, state))
       .forEach(card => {
         const c = createCardElement(card);
-        c.onclick = () => onPlay([card]);
+        if (selectedSet.has(card)) {
+          c.classList.add("selected");
+        }
+        c.onclick = () => onSelect(card);
         el.appendChild(c);
       });
   }
@@ -41,16 +45,18 @@ window.Render = (function () {
   }
 
   function sortHandCards(a, b, state) {
+    const suitDiff = suitOrder(a, state) - suitOrder(b, state);
+    if (suitDiff !== 0) return suitDiff;
     const powerDiff = Rules.cardPower(b, state) - Rules.cardPower(a, state);
     if (powerDiff !== 0) return powerDiff;
-    const suitDiff = suitOrder(a.suit) - suitOrder(b.suit);
-    if (suitDiff !== 0) return suitDiff;
     return Rules.rankValue(b.rank) - Rules.rankValue(a.rank);
   }
 
-  function suitOrder(suit) {
-    if (suit === "JOKER") return -1;
-    return Cards.SUITS.indexOf(suit);
+  function suitOrder(card, state) {
+    if (Rules.isTrump(card, state)) return 0;
+    const order = ["♠", "♥", "♣", "♦"];
+    const index = order.indexOf(card.suit);
+    return index === -1 ? order.length + 1 : index + 1;
   }
 
   function createCardElement(card) {
