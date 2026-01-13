@@ -18,7 +18,7 @@
   function cardPower(card, state) {
     // 王
     if (card.suit === "JOKER") {
-      return card.rank === "大王" ? 100 : 90;
+      return card.rank === "BJ" ? 100 : 90;
     }
 
     // 主牌

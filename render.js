@@ -49,30 +49,61 @@ window.Render = (function () {
   }
 
   function renderStatus(state) {
-    const trumpSuit = state.trumpSuit ? state.trumpSuit : "无花色主";
-    const banker = state.bankerTeam.length ? `庄：${state.bankerTeam.join(",")}` : "庄：未定";
+    const playerLabels = ["南家", "西家", "北家", "东家"];
+    const banker = state.trumpReveal
+      ? `庄：${playerLabels[state.trumpReveal.player] || "玩家"}`
+      : "庄：未定";
     const mainCard = state.trumpSuit ? `${state.trumpSuit}${state.level}` : `无主${state.level}`;
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
-      `主牌：${mainCard}\n主花色：${trumpSuit}\n${banker}\n得分方得分：${state.score}\n庄家等级：${bankerLevel}\n闲家等级：${scoreLevel}`;
+      `主：${mainCard}\n${banker}\n得分：${state.score}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
+  }
+
+  function renderReveal(state) {
+    const isRevealPhase = state.phase === "reveal" || state.phase === "twist" || state.phase === "dealing";
+    const areas = ["south", "west", "north", "east"];
+    if (!isRevealPhase || !state.trumpReveal) {
+      if (!isRevealPhase) {
+        document.querySelectorAll(".played").forEach(e => {
+          e.innerHTML = "";
+        });
+      }
+      return;
+    }
+
+    document.querySelectorAll(".played").forEach(e => {
+      e.innerHTML = "";
+    });
+
+    const area = areas[state.trumpReveal.player];
+    const el = document.querySelector(`.${area}`);
+    if (!el) return;
+    const revealCards = (state.trumpRevealCards || []).filter(card => card.suit !== "JOKER");
+    revealCards.forEach(card => {
+      const c = createCardElement(card);
+      el.appendChild(c);
+    });
   }
 
   function renderTrumpActions(actions, phase, onReveal) {
     const el = document.getElementById("trump-actions");
     if (!el) return;
-    const shouldShow = phase === "reveal" || phase === "twist";
+    const shouldShow = phase === "reveal" || phase === "twist" || phase === "dealing";
     el.classList.toggle("hidden", !shouldShow);
     el.innerHTML = "";
     if (!shouldShow) return;
 
     actions.forEach(action => {
       const button = document.createElement("button");
-      button.className = `trump-action ${action.color}`.trim();
+      button.className = "trump-action";
       button.textContent = action.label;
       if (!action.enabled) {
         button.classList.add("disabled");
       } else {
+        if (action.color) {
+          button.classList.add(action.color);
+        }
         button.classList.add("enabled");
         button.onclick = () => onReveal(action.key);
       }
@@ -118,12 +149,12 @@ window.Render = (function () {
 
   function cardDisplay(card) {
     if (card.suit === "JOKER") {
-      const isBigJoker = card.rank === "BJ" || card.rank === "大王";
-      const rankName = isBigJoker ? "大王" : "小王";
+      const isBigJoker = card.rank === "BJ";
+      const rankName = "JOKER";
       return {
         rank: rankName,
         suit: "",
-        center: rankName,
+        center: "🤡",
         isRed: isBigJoker
       };
     }
@@ -141,7 +172,8 @@ window.Render = (function () {
     renderHand,
     renderTrick,
     renderStatus,
-    renderTrumpActions
+    renderTrumpActions,
+    renderReveal
   };
 
 })();

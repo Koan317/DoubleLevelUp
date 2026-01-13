@@ -1,6 +1,7 @@
 ﻿body {
     margin: 0;
     font-family: system-ui, sans-serif;
+    font-size: 16px;
 }
 
     body.light {
@@ -95,6 +96,7 @@
     gap: 0;
     border-radius: 0;
     overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 #trump-actions.hidden {
@@ -102,15 +104,15 @@
 }
 
 .trump-action {
-    width: 28px;
-    height: 28px;
+    width: 33px;
+    height: 33px;
     border-radius: 0;
     border: 1px solid rgba(0, 0, 0, 0.45);
     background: rgba(255, 255, 255, 0.85);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     cursor: pointer;
     padding: 0;
@@ -134,14 +136,21 @@
     border-color: rgba(0, 0, 0, 0.2);
     background: rgba(180, 180, 180, 0.8);
     cursor: default;
+    pointer-events: none;
+}
+
+.trump-action.disabled:hover {
+    color: #9a9a9a;
+    border-color: rgba(0, 0, 0, 0.2);
+    background: rgba(180, 180, 180, 0.8);
+    cursor: default;
 }
 
 .trump-action.enabled {
     background: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
 }
 
-#hand-actions button {
+#hand-actions > button {
     padding: 8px 16px;
     border-radius: 999px;
     border: none;
@@ -150,9 +159,10 @@
     font-weight: 600;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    font-size: 16px;
 }
 
-#hand-actions button:hover {
+#hand-actions > button:hover {
     background: #f2c94c;
 }
 
@@ -174,7 +184,7 @@
 
 .card .corner {
     position: absolute;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.1;
     text-align: center;
 }
@@ -191,7 +201,7 @@
 }
 
 .card .center {
-    font-size: 32px;
+    font-size: 34px;
 }
 
 .card.red {
@@ -261,5 +271,5 @@
 
 #status {
     white-space: pre-line;
-    font-size: 16px;
+    font-size: 18px;
 }

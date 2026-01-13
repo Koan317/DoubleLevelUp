@@ -58,7 +58,7 @@
 
   function normalizeRank(c) {
     if (c.suit === "JOKER") {
-      return c.rank === "大王" ? "BJ" : "SJ";
+      return c.rank === "BJ" ? "BJ" : "SJ";
     }
     return c.rank;
   }
