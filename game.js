@@ -29,10 +29,13 @@ window.Game = (function () {
       state.players[i % 4].push(deck.pop());
     }
     state.kitty = deck.slice(); // 8 张底牌
-    determineTrump();
     state.bankerLevel = state.level;
     state.scoreLevel = state.level;
-    state.phase = state.trumpSuit ? "twist" : "reveal";
+    state.trumpSuit = null;
+    state.trumpReveal = null;
+    state.bankerTeam = [];
+    state.scoreTeam = [];
+    state.phase = isFirstRound ? "dealing" : "reveal";
 
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
@@ -40,41 +43,51 @@ window.Game = (function () {
     });
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
     Render.renderStatus(state);
+
+    const finishDeal = () => {
+      state.phase = state.trumpSuit ? "twist" : "reveal";
+      autoRevealFromAI();
+      Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+      Render.renderStatus(state);
+    };
+
+    if (isFirstRound) {
+      const dealDurationMs = state.players[0].length * 750;
+      setTimeout(finishDeal, dealDurationMs);
+    } else {
+      finishDeal();
+    }
   }
 
-  function determineTrump() {
-    const candidates = [];
+  function autoRevealFromAI() {
+    let best = state.trumpReveal;
+
     state.players.forEach((hand, index) => {
+      if (index === 0) return;
       findRevealsForHand(hand).forEach(candidate => {
-        candidates.push({
-          player: index,
-          cards: candidate.cards,
-          reveal: candidate.reveal
-        });
+        if (!candidate.reveal) return;
+        if (!best || Trump.canOverride(candidate.reveal, best.reveal)) {
+          best = {
+            player: index,
+            cards: candidate.cards,
+            reveal: candidate.reveal
+          };
+        }
       });
     });
 
-    let best = null;
-    candidates.forEach(candidate => {
-      if (!candidate.reveal) return;
-      if (!best || Trump.canOverride(candidate.reveal, best.reveal)) {
-        best = candidate;
-      }
-    });
-
-    if (best) {
-      state.trumpSuit = best.reveal.trumpSuit;
-      state.trumpReveal = best;
-      state.bankerTeam = best.player % 2 === 0 ? [0, 2] : [1, 3];
-      state.scoreTeam = best.player % 2 === 0 ? [1, 3] : [0, 2];
+    if (best && best !== state.trumpReveal) {
+      applyReveal(best.reveal, best.player);
+      state.phase = "twist";
     }
   }
 
   function findRevealsForHand(hand) {
     const level = state.level;
     const reveals = [];
-    const bigJokers = hand.filter(card => card.rank === "大王");
-    const smallJokers = hand.filter(card => card.rank === "小王");
+    const bigJokers = hand.filter(card => isBigJoker(card));
+    const smallJokers = hand.filter(card => isSmallJoker(card));
     const levelBySuit = {};
 
     hand.forEach(card => {
@@ -138,12 +151,14 @@ window.Game = (function () {
 
   function onHumanReveal(key) {
     if (state.phase !== "reveal" && state.phase !== "twist") return;
-    if (key === "BJ" || key === "SJ") {
-      state.trumpSuit = null;
-    } else {
-      state.trumpSuit = key;
+    const reveal = findHumanReveal(key);
+    if (!reveal) return;
+    if (state.trumpReveal && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
+      return;
     }
-    state.phase = "play";
+    applyReveal(reveal, 0);
+    state.phase = "twist";
+    autoRevealFromAI();
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
@@ -169,6 +184,24 @@ window.Game = (function () {
       { key: "♣", label: "♣", color: "black", enabled: canRevealSuit("♣") },
       { key: "♦", label: "♦", color: "red", enabled: canRevealSuit("♦") }
     ];
+  }
+
+  function findHumanReveal(key) {
+    const candidates = findRevealsForHand(state.players[0] || []);
+    if (key === "BJ") {
+      return candidates.find(c => c.reveal?.type === "DOUBLE_BJ")?.reveal || null;
+    }
+    if (key === "SJ") {
+      return candidates.find(c => c.reveal?.type === "DOUBLE_SJ")?.reveal || null;
+    }
+    return candidates.find(c => c.reveal?.trumpSuit === key)?.reveal || null;
+  }
+
+  function applyReveal(reveal, playerIndex) {
+    state.trumpSuit = reveal.trumpSuit;
+    state.trumpReveal = { player: playerIndex, reveal };
+    state.bankerTeam = playerIndex % 2 === 0 ? [0, 2] : [1, 3];
+    state.scoreTeam = playerIndex % 2 === 0 ? [1, 3] : [0, 2];
   }
 
   function isBigJoker(card) {

@@ -24,6 +24,12 @@ window.Follow = (function () {
       return illegal("未按要求跟主/副");
     }
 
+    // 3️⃣.5 有相同牌型必须先跟相同牌型
+    if (hasSamePatternToFollow(leadPattern, handCards, trumpInfo) &&
+        followPattern.type !== leadPattern.type) {
+      return illegal("有相同牌型未按牌型跟牌");
+    }
+
     // 4️⃣ 对子义务
     if (leadPattern.type === "pair" &&
         hasPairToFollow(leadPattern, handCards, trumpInfo)) {
@@ -71,6 +77,19 @@ window.Follow = (function () {
       }
       return !p.isTrump && p.suit === leadPattern.suit;
     });
+  }
+
+  function hasSamePatternToFollow(leadPattern, handCards, trumpInfo) {
+    if (leadPattern.type === "single") {
+      return hasSuitToFollow(leadPattern, handCards, trumpInfo);
+    }
+    if (leadPattern.type === "pair") {
+      return hasPairToFollow(leadPattern, handCards, trumpInfo);
+    }
+    if (leadPattern.type === "tractor") {
+      return hasTractorToFollow(leadPattern, handCards, trumpInfo);
+    }
+    return false;
   }
 
   function hasPairToFollow(leadPattern, handCards, trumpInfo) {
