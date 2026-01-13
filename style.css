@@ -110,6 +110,12 @@
     color: #d43c3c;
 }
 
+.card.red .rank,
+.card.red .suit,
+.card.red .center {
+    color: #d43c3c;
+}
+
 #hand {
     position: absolute;
     bottom: 20px;

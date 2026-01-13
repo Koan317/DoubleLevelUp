@@ -60,10 +60,10 @@ window.Render = (function () {
 
     const top = document.createElement("div");
     top.className = "corner top";
-    top.innerHTML = `${display.rank}<br>${display.suit}`;
+    top.innerHTML = `<span class="rank">${display.rank}</span><br><span class="suit">${display.suit}</span>`;
     const bottom = document.createElement("div");
     bottom.className = "corner bottom";
-    bottom.innerHTML = `${display.rank}<br>${display.suit}`;
+    bottom.innerHTML = `<span class="rank">${display.rank}</span><br><span class="suit">${display.suit}</span>`;
     const center = document.createElement("div");
     center.className = "center";
     center.textContent = display.center;
