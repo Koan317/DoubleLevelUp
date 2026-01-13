@@ -4,15 +4,25 @@
 }
 
     body.light {
-        --table-bg: #c49a6c;
-        --card-bg: #fff;
-        --card-fg: #000;
+        --table-base: #de7f2a;
+        --table-texture:
+            radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 45%),
+            radial-gradient(circle at 80% 30%, rgba(0, 0, 0, 0.12), transparent 50%),
+            repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 6px),
+            repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 5px);
+        --card-bg: #111;
+        --card-fg: #f7f7f7;
     }
 
     body.dark {
-        --table-bg: #3a2a1a;
-        --card-bg: #000;
-        --card-fg: #fff;
+        --table-base: #0f1b3a;
+        --table-texture:
+            radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.06), transparent 50%),
+            radial-gradient(circle at 75% 30%, rgba(0, 0, 0, 0.3), transparent 55%),
+            repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 7px),
+            repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 6px);
+        --card-bg: #fff;
+        --card-fg: #111;
     }
 
 #app {
@@ -27,7 +37,9 @@
 
 #table {
     position: relative;
-    background: radial-gradient(circle, #d2a679, var(--table-bg));
+    background-color: var(--table-base);
+    background-image: var(--table-texture);
+    background-blend-mode: soft-light;
     height: 100%;
 }
 
@@ -66,6 +78,82 @@
     bottom: 20px;
     right: 20px;
     display: flex;
+}
+
+#hand-actions {
+    position: absolute;
+    bottom: 160px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+#trump-actions {
+    display: flex;
+    gap: 0;
+    border-radius: 0;
+    overflow: hidden;
+}
+
+#trump-actions.hidden {
+    display: none;
+}
+
+.trump-action {
+    width: 28px;
+    height: 28px;
+    border-radius: 0;
+    border: 1px solid rgba(0, 0, 0, 0.45);
+    background: rgba(255, 255, 255, 0.85);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+}
+
+.trump-action + .trump-action {
+    margin-left: 0;
+    border-left: none;
+}
+
+.trump-action.red {
+    color: #c0392b;
+}
+
+.trump-action.black {
+    color: #222;
+}
+
+.trump-action.disabled {
+    color: #9a9a9a;
+    border-color: rgba(0, 0, 0, 0.2);
+    background: rgba(180, 180, 180, 0.8);
+    cursor: default;
+}
+
+.trump-action.enabled {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+#hand-actions button {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: none;
+    background: #f5d76e;
+    color: #222;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+#hand-actions button:hover {
+    background: #f2c94c;
 }
 
 .card {
@@ -125,17 +213,37 @@
     align-items: flex-end;
     padding: 8px 16px;
     border-radius: 12px;
-    background: rgba(0, 0, 0, 0.3);
     max-width: 90%;
     overflow: hidden;
 }
 
 #hand .card {
     margin-left: -40px;
+    cursor: pointer;
 }
 
 #hand .card:first-child {
     margin-left: 0;
+}
+
+#hand .card.selected {
+    transform: translateY(-12px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.45);
+}
+
+#hand .card.deal {
+    animation: deal-in 0.75s ease-out both;
+}
+
+@keyframes deal-in {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 #sidebar {
