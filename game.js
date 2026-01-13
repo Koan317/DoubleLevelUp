@@ -12,6 +12,8 @@ window.Game = (function () {
     bankerTeam: [],
     scoreTeam: [],
     trumpReveal: null,
+    bankerLevel: null,
+    scoreLevel: null,
   };
 
   function startGame() {
@@ -23,8 +25,10 @@ window.Game = (function () {
     }
     state.kitty = deck.slice(); // 8 张底牌
     determineTrump();
+    state.bankerLevel = state.level;
+    state.scoreLevel = state.level;
 
-    Render.renderHand(state.players[0], onHumanPlay);
+    Render.renderHand(state.players[0], state, onHumanPlay);
     Render.renderStatus(state);
   }
 
@@ -171,7 +175,7 @@ window.Game = (function () {
     state.turn = winner;
     state.currentTrick = [];
 
-    Render.renderHand(state.players[0], onHumanPlay);
+    Render.renderHand(state.players[0], state, onHumanPlay);
     Render.renderStatus(state);
   }
 
