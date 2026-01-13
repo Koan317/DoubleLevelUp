@@ -76,7 +76,7 @@ window.Game = (function () {
         Render.renderStatus(state);
         attemptAutoRevealDuringDeal(playerIndex);
         dealIndex += 1;
-        setTimeout(dealNext, 750);
+        setTimeout(dealNext, 187.5);
       };
       dealNext();
     } else {

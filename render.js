@@ -56,7 +56,7 @@ window.Render = (function () {
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
-      `主：${mainCard}\n${banker}\n得分：${state.score}\n队伍A等级：${bankerLevel}\n队伍B等级：${scoreLevel}`;
+      `主：${mainCard}\n${banker}\n得分：${state.score}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
   }
 
   function renderTrumpActions(actions, phase, onReveal) {
