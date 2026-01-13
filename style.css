@@ -93,6 +93,8 @@
 #trump-actions {
     display: flex;
     gap: 0;
+    border-radius: 0;
+    overflow: hidden;
 }
 
 #trump-actions.hidden {
@@ -115,7 +117,8 @@
 }
 
 .trump-action + .trump-action {
-    margin-left: 2px;
+    margin-left: 0;
+    border-left: none;
 }
 
 .trump-action.red {
