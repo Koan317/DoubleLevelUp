@@ -34,8 +34,10 @@ window.Render = (function () {
   }
 
   function renderStatus(state) {
+    const trumpSuit = state.trumpSuit ? state.trumpSuit : "无花色主";
+    const banker = state.bankerTeam.length ? `庄：${state.bankerTeam.join(",")}` : "庄：未定";
     document.getElementById("status").innerText =
-      `主：${state.level}\n得分：${state.score}`;
+      `主级：${state.level}\n主花色：${trumpSuit}\n${banker}\n得分：${state.score}`;
   }
 
   return {
