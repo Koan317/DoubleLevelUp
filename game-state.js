@@ -82,6 +82,15 @@ window.Game = (function () {
     Render.renderKitty(state);
     Render.renderStatus(state);
     Render.animateKittyTransfer(state.trumpReveal.player, () => {
+      grantKittyToBanker();
+      if (state.trumpReveal.player === 0) {
+        state.selectedCards = [];
+        Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+        Render.renderRuleMessage(`请选择${state.kitty.length}张扣底`);
+        Render.setPlayButtonEnabled(true);
+        return;
+      }
+      autoDiscardKittyForAI(state.trumpReveal.player);
       startTwistPhase();
     });
   }
@@ -364,6 +373,11 @@ window.Game = (function () {
   }
 
   function onHumanPlaySelected() {
+    if (state.phase === "kitty") {
+      handleHumanKittyDiscard();
+      return;
+    }
+    if (state.phase !== "play") return;
     if (!state.selectedCards.length) return;
     const cards = state.selectedCards.slice();
     const ok = tryPlay(0, cards, { source: "玩家" });
@@ -496,6 +510,47 @@ window.Game = (function () {
     state.trumpRevealCards = cards;
     state.bankerTeam = playerIndex % 2 === 0 ? [0, 2] : [1, 3];
     state.scoreTeam = playerIndex % 2 === 0 ? [1, 3] : [0, 2];
+  }
+
+  function grantKittyToBanker() {
+    const bankerIndex = state.trumpReveal?.player ?? 0;
+    if (!state.kitty.length) return;
+    state.players[bankerIndex] = state.players[bankerIndex].concat(state.kitty);
+  }
+
+  function autoDiscardKittyForAI(bankerIndex) {
+    if (!state.kitty.length) return;
+    const sorted = state.players[bankerIndex]
+      .slice()
+      .sort((a, b) => {
+        const powerDiff = Rules.cardPower(a, state) - Rules.cardPower(b, state);
+        if (powerDiff !== 0) return powerDiff;
+        return Rules.rankValue(a.rank) - Rules.rankValue(b.rank);
+      });
+    const discard = sorted.slice(0, state.kitty.length);
+    state.players[bankerIndex] = state.players[bankerIndex]
+      .filter(card => !discard.includes(card));
+    state.kitty = discard;
+    state.kittyVisible = false;
+    Render.renderKitty(state);
+  }
+
+  function handleHumanKittyDiscard() {
+    if (!state.kitty.length) return;
+    if (state.selectedCards.length !== state.kitty.length) {
+      Render.renderRuleMessage(`请扣${state.kitty.length}张底牌`);
+      return;
+    }
+    const discard = state.selectedCards.slice();
+    state.players[0] = state.players[0].filter(card => !discard.includes(card));
+    state.kitty = discard;
+    state.kittyVisible = false;
+    state.selectedCards = [];
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.renderKitty(state);
+    Render.renderRuleMessage(null);
+    Render.setPlayButtonEnabled(false);
+    startTwistPhase();
   }
 
   function isBigJoker(card) {
@@ -673,7 +728,7 @@ window.Game = (function () {
     Render.renderTrick(state.currentTrick, state);
 
     if (state.currentTrick.length === 4) {
-      setTimeout(() => finishTrick(), 2000);
+      finishTrick();
       return;
     }
 
