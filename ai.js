@@ -14,11 +14,13 @@ window.AI = (function () {
 
     const analyzed = hand.map(card => ({
       card,
-      pattern: Pattern.analyzePlay([card], state)
+      pattern: Pattern.analyzePlay([card], state),
+      isTrump: Rules.isTrump(card, state),
+      power: Rules.cardPower(card, state)
     }));
 
     // 按“由小到大”排序
-    analyzed.sort(comparePatternAsc);
+    analyzed.sort(compareCardAsc);
 
     // ========= 首家 =========
     if (!leadPattern) {
@@ -45,25 +47,26 @@ window.AI = (function () {
 
   /* ================= 工具函数 ================= */
 
-  function comparePatternAsc(a, b) {
+  function compareCardAsc(a, b) {
     // trump > side
     if (a.pattern.isTrump && !b.pattern.isTrump) return 1;
     if (!a.pattern.isTrump && b.pattern.isTrump) return -1;
 
-    // 同类型按 compareValue
-    return a.pattern.compareValue - b.pattern.compareValue;
+    return a.power - b.power;
   }
 
   function beats(myPattern, leadPattern, state) {
-    // 贴牌永远不可能“主动压过”
-    if (myPattern.isDump) return false;
-
     // 主压副
     if (myPattern.isTrump && !leadPattern.isTrump) return true;
     if (!myPattern.isTrump && leadPattern.isTrump) return false;
 
-    // 同为主 or 同为副
-    return myPattern.compareValue > leadPattern.compareValue;
+    if (!myPattern.isTrump && !leadPattern.isTrump) {
+      if (myPattern.suit !== leadPattern.suit) {
+        return false;
+      }
+    }
+
+    return myPattern.power > leadPattern.power;
   }
 
   return {
