@@ -68,6 +68,68 @@ window.Game = (function () {
     };
   }
 
+  function beginKittyPhase() {
+    if (!state.trumpReveal) return;
+    state.phase = "kitty";
+    state.revealWindowOpen = false;
+    clearRevealCountdown();
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: false
+    });
+    Render.renderKitty(state);
+    Render.renderStatus(state);
+    Render.animateKittyTransfer(state.trumpReveal.player, () => {
+      startTwistPhase();
+    });
+  }
+
+  function canHumanTwist() {
+    const actions = buildTrumpActions();
+    return actions.some(action => action.enabled);
+  }
+
+  function startTwistPhase() {
+    state.phase = "twist";
+    if (canHumanTwist()) {
+      state.revealWindowOpen = true;
+      startRevealCountdown(() => {
+        endTwistPhase();
+      });
+    } else {
+      state.revealWindowOpen = false;
+      clearRevealCountdown();
+      setTimeout(() => {
+        endTwistPhase();
+      }, 1000);
+    }
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: false
+    });
+    Render.renderStatus(state);
+  }
+
+  function endTwistPhase() {
+    state.revealWindowOpen = false;
+    clearRevealCountdown();
+    startPlayFromBanker();
+  }
+
+  function startPlayFromBanker() {
+    state.phase = "play";
+    state.turn = state.trumpReveal?.player ?? 0;
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: false,
+      allowPendingReveal: false
+    });
+    Render.renderReveal(state);
+    Render.renderStatus(state);
+    if (state.turn !== 0) {
+      setTimeout(() => aiTurn(state.turn), 300);
+    }
+  }
+
   function startGame() {
     const isFirstRound = state.round === 0;
     state.round += 1;
@@ -94,6 +156,7 @@ window.Game = (function () {
       animateDeal: false
     });
     clearRevealCountdown();
+    Render.renderKitty(state);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
@@ -120,6 +183,10 @@ window.Game = (function () {
         });
         Render.renderStatus(state);
         Render.renderReveal(state);
+        Render.renderKitty(state);
+        if (state.trumpReveal) {
+          beginKittyPhase();
+        }
       };
 
       state.phase = state.trumpSuit ? "twist" : "reveal";
@@ -629,6 +696,12 @@ window.Game = (function () {
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);
+    if (state.players.every(hand => hand.length === 0)) {
+      return;
+    }
+    if (winner !== 0) {
+      setTimeout(() => aiTurn(winner), 300);
+    }
   }
 
   return {

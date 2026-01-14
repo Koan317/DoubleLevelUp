@@ -95,6 +95,20 @@ window.Render = (function () {
     });
   }
 
+  function renderKitty(state) {
+    const el = document.getElementById("kitty");
+    if (!el) return;
+    el.innerHTML = "";
+    const cardCount = state.kitty?.length || 8;
+    for (let i = 0; i < cardCount; i += 1) {
+      const card = createCardBackElement();
+      card.classList.add("kitty-card");
+      card.style.left = `${i * 6}px`;
+      card.style.top = `${i * 2}px`;
+      el.appendChild(card);
+    }
+  }
+
   function renderTrumpActions(actions, phase, onReveal, options = {}) {
     const el = document.getElementById("trump-actions");
     if (!el) return;
@@ -181,6 +195,12 @@ window.Render = (function () {
     return el;
   }
 
+  function createCardBackElement() {
+    const el = document.createElement("div");
+    el.className = "card back";
+    return el;
+  }
+
   function cardDisplay(card) {
     if (card.suit === "JOKER") {
       const isBigJoker = card.rank === "BJ";
@@ -204,6 +224,34 @@ window.Render = (function () {
 
   function isSuitKey(key) {
     return key === "♠" || key === "♥" || key === "♣" || key === "♦";
+  }
+
+  function animateKittyTransfer(bankerIndex, onComplete) {
+    const kitty = document.getElementById("kitty");
+    if (!kitty) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const area = ["south", "west", "north", "east"][bankerIndex];
+    const target = document.querySelector(`.${area}`);
+    if (!target) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const kittyRect = kitty.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const deltaX = targetRect.left + targetRect.width / 2 - (kittyRect.left + kittyRect.width / 2);
+    const deltaY = targetRect.top + targetRect.height / 2 - (kittyRect.top + kittyRect.height / 2);
+    kitty.style.setProperty("--kitty-target-x", `${deltaX}px`);
+    kitty.style.setProperty("--kitty-target-y", `${deltaY}px`);
+    const cards = kitty.querySelectorAll(".kitty-card");
+    cards.forEach(card => card.classList.add("kitty-move"));
+    setTimeout(() => {
+      cards.forEach(card => card.classList.remove("kitty-move"));
+    }, 700);
+    setTimeout(() => {
+      if (onComplete) onComplete();
+    }, 1400);
   }
 
   function renderBankerBadge(state) {
@@ -237,7 +285,9 @@ window.Render = (function () {
     renderStatus,
     renderTrumpActions,
     renderReveal,
-    renderCountdown
+    renderCountdown,
+    renderKitty,
+    animateKittyTransfer
   };
 
 })();
