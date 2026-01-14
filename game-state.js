@@ -82,6 +82,15 @@ window.Game = (function () {
     Render.renderKitty(state);
     Render.renderStatus(state);
     Render.animateKittyTransfer(state.trumpReveal.player, () => {
+      grantKittyToBanker();
+      if (state.trumpReveal.player === 0) {
+        state.selectedCards = [];
+        Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+        Render.renderRuleMessage(`请选择${state.kitty.length}张扣底`);
+        Render.setPlayButtonEnabled(true);
+        return;
+      }
+      autoDiscardKittyForAI(state.trumpReveal.player);
       startTwistPhase();
     });
   }
@@ -121,6 +130,7 @@ window.Game = (function () {
   function startPlayFromBanker() {
     state.phase = "play";
     state.turn = state.trumpReveal?.player ?? 0;
+    Render.setPlayButtonEnabled(state.turn === 0);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: false,
       allowPendingReveal: false
@@ -159,6 +169,7 @@ window.Game = (function () {
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
       animateDeal: false
     });
+    Render.setPlayButtonEnabled(false);
     clearRevealCountdown();
     Render.renderKitty(state);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
@@ -362,12 +373,18 @@ window.Game = (function () {
   }
 
   function onHumanPlaySelected() {
+    if (state.phase === "kitty") {
+      handleHumanKittyDiscard();
+      return;
+    }
+    if (state.phase !== "play") return;
     if (!state.selectedCards.length) return;
     const cards = state.selectedCards.slice();
     const ok = tryPlay(0, cards, { source: "玩家" });
     if (!ok) return;
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.setPlayButtonEnabled(false);
   }
 
   function onHumanReveal(key) {
@@ -493,6 +510,45 @@ window.Game = (function () {
     state.trumpRevealCards = cards;
     state.bankerTeam = playerIndex % 2 === 0 ? [0, 2] : [1, 3];
     state.scoreTeam = playerIndex % 2 === 0 ? [1, 3] : [0, 2];
+  }
+
+  function grantKittyToBanker() {
+    const bankerIndex = state.trumpReveal?.player ?? 0;
+    if (!state.kitty.length) return;
+    state.players[bankerIndex] = state.players[bankerIndex].concat(state.kitty);
+  }
+
+  function autoDiscardKittyForAI(bankerIndex) {
+    if (!state.kitty.length) return;
+    const sorted = state.players[bankerIndex]
+      .slice()
+      .sort((a, b) => {
+        const powerDiff = Rules.cardPower(a, state) - Rules.cardPower(b, state);
+        if (powerDiff !== 0) return powerDiff;
+        return Rules.rankValue(a.rank) - Rules.rankValue(b.rank);
+      });
+    const discard = sorted.slice(0, state.kitty.length);
+    state.players[bankerIndex] = state.players[bankerIndex]
+      .filter(card => !discard.includes(card));
+    state.kitty = discard;
+    Render.renderKitty(state);
+  }
+
+  function handleHumanKittyDiscard() {
+    if (!state.kitty.length) return;
+    if (state.selectedCards.length !== state.kitty.length) {
+      Render.renderRuleMessage(`请扣${state.kitty.length}张底牌`);
+      return;
+    }
+    const discard = state.selectedCards.slice();
+    state.players[0] = state.players[0].filter(card => !discard.includes(card));
+    state.kitty = discard;
+    state.selectedCards = [];
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.renderKitty(state);
+    Render.renderRuleMessage(null);
+    Render.setPlayButtonEnabled(false);
+    startTwistPhase();
   }
 
   function isBigJoker(card) {
@@ -675,6 +731,9 @@ window.Game = (function () {
     }
 
     const next = (playerIndex + 1) % 4;
+    if (next === 0) {
+      Render.setPlayButtonEnabled(true);
+    }
     setTimeout(() => aiTurn(next), 300);
   }
 
@@ -712,6 +771,7 @@ window.Game = (function () {
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);
+    Render.setPlayButtonEnabled(winner === 0);
     if (state.players.every(hand => hand.length === 0)) {
       return;
     }

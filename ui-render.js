@@ -266,7 +266,7 @@ window.Render = (function () {
     const badge = document.getElementById("banker-badge");
     if (!badge) return;
     const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
-    if (!area || !state.kittyVisible) {
+    if (!area) {
       badge.className = "banker-badge hidden";
       badge.textContent = "";
       return;
@@ -299,6 +299,12 @@ window.Render = (function () {
     el.textContent = message || "";
   }
 
+  function setPlayButtonEnabled(enabled) {
+    const button = document.getElementById("playButton");
+    if (!button) return;
+    button.disabled = !enabled;
+  }
+
   return {
     renderHand,
     renderTrick,
@@ -308,7 +314,8 @@ window.Render = (function () {
     renderCountdown,
     renderKitty,
     animateKittyTransfer,
-    renderRuleMessage
+    renderRuleMessage,
+    setPlayButtonEnabled
   };
 
 })();
