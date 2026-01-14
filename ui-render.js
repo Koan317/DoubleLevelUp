@@ -53,11 +53,20 @@ window.Render = (function () {
     const banker = state.trumpReveal
       ? `庄：${playerLabels[state.trumpReveal.player] || "玩家"}`
       : "庄：未定";
-    const mainCard = state.trumpSuit ? `${state.trumpSuit}${state.level}` : `无主${state.level}`;
+    const isDoubleSuit = state.trumpReveal?.reveal?.type === "ONE_WANG_TWO";
+    const suitDisplay = state.trumpSuit
+      ? `${state.trumpSuit}${isDoubleSuit ? state.trumpSuit : ""}`
+      : "无主";
+    const mainCard = state.trumpSuit ? `${suitDisplay}${state.level}` : `无主${state.level}`;
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
-      `主：${mainCard}\n${banker}\n得分：${state.score}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
+      `主：${mainCard}\n${banker}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
+    const scoreEl = document.getElementById("score-display");
+    if (scoreEl) {
+      scoreEl.textContent = `得分 ${state.score}`;
+    }
+    renderBankerBadge(state);
   }
 
   function renderReveal(state) {
@@ -195,6 +204,19 @@ window.Render = (function () {
 
   function isSuitKey(key) {
     return key === "♠" || key === "♥" || key === "♣" || key === "♦";
+  }
+
+  function renderBankerBadge(state) {
+    const badge = document.getElementById("banker-badge");
+    if (!badge) return;
+    const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
+    if (!area) {
+      badge.className = "banker-badge hidden";
+      badge.textContent = "";
+      return;
+    }
+    badge.textContent = "庄";
+    badge.className = `banker-badge ${area}`;
   }
 
   function renderCountdown(countdownValue) {
