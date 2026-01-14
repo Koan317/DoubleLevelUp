@@ -17,9 +17,119 @@ window.Game = (function () {
     scoreLevel: null,
     selectedCards: [],
     pendingRevealKey: null,
+    revealCountdown: null,
+    revealWindowOpen: false,
+    kittyVisible: false,
     phase: "play",
     round: 0,
   };
+
+  let revealCountdownTimer = null;
+
+  function clearRevealCountdown() {
+    if (revealCountdownTimer) {
+      clearTimeout(revealCountdownTimer);
+      revealCountdownTimer = null;
+    }
+    state.revealCountdown = null;
+    Render.renderCountdown(null);
+  }
+
+  function startRevealCountdown(onComplete) {
+    clearRevealCountdown();
+    state.revealCountdown = 5;
+    Render.renderCountdown(state.revealCountdown);
+    const tick = () => {
+      if (state.revealCountdown === null) return;
+      if (state.revealCountdown === 0) {
+        clearRevealCountdown();
+        if (onComplete) onComplete();
+        return;
+      }
+      state.revealCountdown -= 1;
+      Render.renderCountdown(state.revealCountdown);
+      revealCountdownTimer = setTimeout(tick, 1000);
+    };
+    revealCountdownTimer = setTimeout(tick, 1000);
+  }
+
+  function isHumanBanker() {
+    return state.trumpReveal?.player === 0;
+  }
+
+  function shouldStartRevealCountdown() {
+    return !state.trumpReveal || isHumanBanker();
+  }
+
+  function getRevealOptions(phase = state.phase) {
+    const isJokerLevel = state.level === "王";
+    return {
+      requireSameColor: isFirstRound(),
+      allowDoubleJokers: phase === "twist" || isJokerLevel
+    };
+  }
+
+  function beginKittyPhase() {
+    if (!state.trumpReveal) return;
+    state.phase = "kitty";
+    state.revealWindowOpen = false;
+    clearRevealCountdown();
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: false
+    });
+    Render.renderKitty(state);
+    Render.renderStatus(state);
+    Render.animateKittyTransfer(state.trumpReveal.player, () => {
+      startTwistPhase();
+    });
+  }
+
+  function canHumanTwist() {
+    const actions = buildTrumpActions();
+    return actions.some(action => action.enabled);
+  }
+
+  function startTwistPhase() {
+    state.phase = "twist";
+    if (canHumanTwist()) {
+      state.revealWindowOpen = true;
+      startRevealCountdown(() => {
+        endTwistPhase();
+      });
+    } else {
+      state.revealWindowOpen = false;
+      clearRevealCountdown();
+      setTimeout(() => {
+        endTwistPhase();
+      }, 1000);
+    }
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: false
+    });
+    Render.renderStatus(state);
+  }
+
+  function endTwistPhase() {
+    state.revealWindowOpen = false;
+    clearRevealCountdown();
+    startPlayFromBanker();
+  }
+
+  function startPlayFromBanker() {
+    state.phase = "play";
+    state.turn = state.trumpReveal?.player ?? 0;
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: false,
+      allowPendingReveal: false
+    });
+    Render.renderReveal(state);
+    Render.renderStatus(state);
+    if (state.turn !== 0) {
+      setTimeout(() => aiTurn(state.turn), 300);
+    }
+  }
 
   function startGame() {
     const isFirstRound = state.round === 0;
@@ -36,6 +146,9 @@ window.Game = (function () {
     state.trumpReveal = null;
     state.trumpRevealCards = [];
     state.pendingRevealKey = null;
+    state.revealCountdown = null;
+    state.revealWindowOpen = isFirstRound;
+    state.kittyVisible = false;
     state.bankerTeam = [];
     state.scoreTeam = [];
     state.phase = isFirstRound ? "dealing" : "reveal";
@@ -44,22 +157,58 @@ window.Game = (function () {
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
       animateDeal: false
     });
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+    clearRevealCountdown();
+    Render.renderKitty(state);
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+    });
     Render.renderStatus(state);
     Render.renderReveal(state);
 
     const finishDeal = () => {
-      if (!state.trumpSuit) {
-        if (isFirstRound) {
-          resolveKittyReveal();
-        } else {
-          autoRevealFromAI();
+      const finalizeRevealWindow = () => {
+        if (!state.trumpSuit) {
+          if (isFirstRound) {
+            resolveKittyReveal();
+          } else {
+            autoRevealFromAI();
+          }
         }
-      }
+        state.phase = state.trumpSuit ? "twist" : "reveal";
+        tryPendingReveal();
+        state.revealWindowOpen = false;
+        Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+        Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+          revealWindowOpen: state.revealWindowOpen,
+          allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+        });
+        Render.renderStatus(state);
+        Render.renderReveal(state);
+        Render.renderKitty(state);
+        if (state.trumpReveal) {
+          beginKittyPhase();
+        }
+      };
+
       state.phase = state.trumpSuit ? "twist" : "reveal";
-      tryPendingReveal();
+      state.kittyVisible = true;
+      Render.renderKitty(state);
+
+      if (shouldStartRevealCountdown()) {
+        state.revealWindowOpen = true;
+        startRevealCountdown(finalizeRevealWindow);
+      } else {
+        state.revealWindowOpen = false;
+        finalizeRevealWindow();
+        return;
+      }
+
       Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+        revealWindowOpen: state.revealWindowOpen,
+        allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+      });
       Render.renderStatus(state);
       Render.renderReveal(state);
     };
@@ -80,7 +229,10 @@ window.Game = (function () {
           });
           tryPendingReveal();
         }
-        Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+        Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+          revealWindowOpen: state.revealWindowOpen,
+          allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+        });
         Render.renderStatus(state);
         Render.renderReveal(state);
         attemptAutoRevealDuringDeal(playerIndex);
@@ -98,11 +250,8 @@ window.Game = (function () {
 
   function autoRevealFromAI() {
     let best = state.trumpReveal;
-    const allowOverride = !isFirstRound();
-    const revealOptions = {
-      requireSameColor: isFirstRound(),
-      allowDoubleJokers: !isFirstRound()
-    };
+    const allowOverride = true;
+    const revealOptions = getRevealOptions();
 
     state.players.forEach((hand, index) => {
       if (index === 0) return;
@@ -164,20 +313,36 @@ window.Game = (function () {
 
     const jokers = [...bigJokers, ...smallJokers];
     jokers.forEach(joker => {
+      const singleReveal = Trump.analyzeReveal([joker], level, {
+        requireSameColor,
+        allowDoubleJokers
+      });
+      if (singleReveal) {
+        reveals.push({ cards: [joker], reveal: singleReveal });
+      }
+
       Object.keys(levelBySuit).forEach(suit => {
         const levels = levelBySuit[suit];
         if (!levels.length) return;
         if (requireSameColor && !jokerMatchesSuit(joker, suit)) return;
-        const cards = levels.length >= 2
-          ? [joker, levels[0], levels[1]]
-          : [joker, levels[0]];
+        const singleCards = [joker, levels[0]];
         reveals.push({
-          cards,
-          reveal: Trump.analyzeReveal(cards, level, {
+          cards: singleCards,
+          reveal: Trump.analyzeReveal(singleCards, level, {
             requireSameColor,
             allowDoubleJokers
           })
         });
+        if (levels.length >= 2) {
+          const doubleCards = [joker, levels[0], levels[1]];
+          reveals.push({
+            cards: doubleCards,
+            reveal: Trump.analyzeReveal(doubleCards, level, {
+              requireSameColor,
+              allowDoubleJokers
+            })
+          });
+        }
       });
     });
 
@@ -206,6 +371,7 @@ window.Game = (function () {
 
   function onHumanReveal(key) {
     if (state.phase !== "reveal" && state.phase !== "twist" && state.phase !== "dealing") return;
+    if (!state.revealWindowOpen) return;
     let candidate = null;
     if (isFirstRound() && !state.trumpReveal && isSuitKey(key)) {
       candidate = getFirstRoundRevealForSuit(key);
@@ -220,11 +386,9 @@ window.Game = (function () {
       return;
     }
     const { reveal, cards: revealCards = [] } = candidate;
-    if (state.trumpReveal && state.trumpReveal.player === 0) return;
-    if (state.trumpReveal && !isFirstRound() && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
+    if (state.trumpReveal && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
       return;
     }
-    if (state.trumpReveal && isFirstRound()) return;
     const shouldLockDealing = state.phase === "dealing";
     applyReveal(reveal, 0, revealCards);
     state.pendingRevealKey = null;
@@ -234,73 +398,92 @@ window.Game = (function () {
     }
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+    });
     Render.renderStatus(state);
     Render.renderReveal(state);
   }
 
   function buildTrumpActions() {
     const hand = state.players[0] || [];
-    const isFirst = isFirstRound();
-    const isLockedFirstRound = isFirst && state.trumpReveal;
-    const hasBigJoker = hand.filter(card => isBigJoker(card)).length >= 2;
-    const hasSmallJoker = hand.filter(card => isSmallJoker(card)).length >= 2;
-    const hasAnyJoker = hand.some(card => isBigJoker(card) || isSmallJoker(card));
-    const hasRedJoker = hand.some(card => isBigJoker(card));
-    const hasBlackJoker = hand.some(card => isSmallJoker(card));
-    const levelCardsBySuit = new Set(
-      hand.filter(card => card.rank === state.level).map(card => card.suit)
-    );
+    const revealOptions = getRevealOptions();
+    const candidates = findRevealsForHand(hand, revealOptions).filter(candidate => candidate.reveal);
+    const byKey = {
+      BJ: [],
+      SJ: [],
+      "♠": [],
+      "♥": [],
+      "♣": [],
+      "♦": []
+    };
 
-    const canRevealSuit = suit => hasAnyJoker && levelCardsBySuit.has(suit);
-    const canRevealSuitFirstRound = suit =>
-      levelCardsBySuit.has(suit) && (isRedSuit(suit) ? hasRedJoker : hasBlackJoker);
+    candidates.forEach(candidate => {
+      const { reveal } = candidate;
+      if (reveal.trumpSuit) {
+        if (byKey[reveal.trumpSuit]) {
+          byKey[reveal.trumpSuit].push(candidate);
+        }
+        return;
+      }
+      if (reveal.type === "DOUBLE_BJ") {
+        byKey.BJ.push(candidate);
+        return;
+      }
+      if (reveal.type === "DOUBLE_SJ") {
+        byKey.SJ.push(candidate);
+        return;
+      }
+      if (reveal.type === "SINGLE_JOKER") {
+        if (reveal.jokerRank === "BJ") {
+          byKey.BJ.push(candidate);
+        } else if (reveal.jokerRank === "SJ") {
+          byKey.SJ.push(candidate);
+        }
+      }
+    });
+
+    const pickCandidate = list => {
+      if (!list.length) return null;
+      const sorted = list.slice().sort((a, b) => a.reveal.power - b.reveal.power);
+      if (!state.trumpReveal) return sorted[0];
+      return sorted.find(candidate => Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) || null;
+    };
 
     return [
-      { key: "BJ", label: "♛", color: "red", enabled: !isFirst && hasBigJoker },
-      { key: "SJ", label: "♚", color: "black", enabled: !isFirst && hasSmallJoker },
-      {
-        key: "♠",
-        label: "♠",
-        color: "black",
-        enabled: !isLockedFirstRound && (isFirst ? canRevealSuitFirstRound("♠") : canRevealSuit("♠"))
-      },
-      {
-        key: "♥",
-        label: "♥",
-        color: "red",
-        enabled: !isLockedFirstRound && (isFirst ? canRevealSuitFirstRound("♥") : canRevealSuit("♥"))
-      },
-      {
-        key: "♣",
-        label: "♣",
-        color: "black",
-        enabled: !isLockedFirstRound && (isFirst ? canRevealSuitFirstRound("♣") : canRevealSuit("♣"))
-      },
-      {
-        key: "♦",
-        label: "♦",
-        color: "red",
-        enabled: !isLockedFirstRound && (isFirst ? canRevealSuitFirstRound("♦") : canRevealSuit("♦"))
-      }
+      { key: "BJ", label: "♛", color: "red", enabled: Boolean(pickCandidate(byKey.BJ)) },
+      { key: "SJ", label: "♚", color: "black", enabled: Boolean(pickCandidate(byKey.SJ)) },
+      { key: "♠", label: "♠", color: "black", enabled: Boolean(pickCandidate(byKey["♠"])) },
+      { key: "♥", label: "♥", color: "red", enabled: Boolean(pickCandidate(byKey["♥"])) },
+      { key: "♣", label: "♣", color: "black", enabled: Boolean(pickCandidate(byKey["♣"])) },
+      { key: "♦", label: "♦", color: "red", enabled: Boolean(pickCandidate(byKey["♦"])) }
     ];
   }
 
   function findHumanReveal(key) {
-    const candidates = findRevealsForHand(state.players[0] || [], {
-      requireSameColor: isFirstRound(),
-      allowDoubleJokers: !isFirstRound()
+    const candidates = findRevealsForHand(state.players[0] || [], getRevealOptions())
+      .filter(candidate => candidate.reveal);
+    const matched = candidates.filter(candidate => {
+      const { reveal } = candidate;
+      if (key === "BJ") {
+        return reveal.type === "DOUBLE_BJ" ||
+          (reveal.type === "SINGLE_JOKER" && reveal.jokerRank === "BJ");
+      }
+      if (key === "SJ") {
+        return reveal.type === "DOUBLE_SJ" ||
+          (reveal.type === "SINGLE_JOKER" && reveal.jokerRank === "SJ");
+      }
+      return reveal.trumpSuit === key;
     });
-    if (isFirstRound()) {
-      return candidates.find(c => c.reveal?.trumpSuit === key) || getFirstRoundRevealForSuit(key);
+
+    if (!matched.length && isFirstRound()) {
+      return getFirstRoundRevealForSuit(key);
     }
-    if (key === "BJ") {
-      return candidates.find(c => c.reveal?.type === "DOUBLE_BJ") || null;
-    }
-    if (key === "SJ") {
-      return candidates.find(c => c.reveal?.type === "DOUBLE_SJ") || null;
-    }
-    return candidates.find(c => c.reveal?.trumpSuit === key) || null;
+
+    const sorted = matched.slice().sort((a, b) => a.reveal.power - b.reveal.power);
+    if (!state.trumpReveal) return sorted[0] || null;
+    return sorted.find(candidate => Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) || null;
   }
 
   function applyReveal(reveal, playerIndex, cards = []) {
@@ -340,16 +523,16 @@ window.Game = (function () {
     if (state.trumpSuit) return;
     if (playerIndex === 0) return;
     const hand = state.players[playerIndex];
-    const revealOptions = {
-      requireSameColor: true,
-      allowDoubleJokers: false
-    };
+    const revealOptions = getRevealOptions("dealing");
     const reveal = findRevealsForHand(hand, revealOptions)
       .find(candidate => candidate?.reveal && aiRevealAllowed(candidate, revealOptions));
     if (!reveal?.reveal) return;
     applyReveal(reveal.reveal, playerIndex, reveal.cards || []);
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+    });
     Render.renderStatus(state);
     Render.renderReveal(state);
   }
@@ -376,13 +559,22 @@ window.Game = (function () {
     if (!joker) return null;
     const levels = hand.filter(card => card.rank === state.level && card.suit === suit);
     if (!levels.length) return null;
-    const cards = levels.length >= 2 ? [joker, levels[0], levels[1]] : [joker, levels[0]];
-    const reveal = Trump.analyzeReveal(cards, state.level, {
+    const singleCards = [joker, levels[0]];
+    const singleReveal = Trump.analyzeReveal(singleCards, state.level, {
       requireSameColor: true,
       allowDoubleJokers: false
     });
-    if (!reveal) return null;
-    return { reveal, cards };
+    if (singleReveal) {
+      return { reveal: singleReveal, cards: singleCards };
+    }
+    if (levels.length < 2) return null;
+    const doubleCards = [joker, levels[0], levels[1]];
+    const doubleReveal = Trump.analyzeReveal(doubleCards, state.level, {
+      requireSameColor: true,
+      allowDoubleJokers: false
+    });
+    if (!doubleReveal) return null;
+    return { reveal: doubleReveal, cards: doubleCards };
   }
 
   function aiRevealAllowed(candidate, options) {
@@ -397,6 +589,9 @@ window.Game = (function () {
       }
       return true;
     }
+    if (candidate.reveal.type === "SINGLE_JOKER") {
+      return true;
+    }
     const jokers = candidate.cards.filter(card => card.suit === "JOKER");
     if (jokers.length < 2) return false;
     const allBig = jokers.every(card => isBigJoker(card));
@@ -406,6 +601,7 @@ window.Game = (function () {
 
   function tryPendingReveal() {
     if (!state.pendingRevealKey) return;
+    if (!state.revealWindowOpen) return;
     if (state.trumpReveal || !isFirstRound()) {
       state.pendingRevealKey = null;
       return;
@@ -415,7 +611,10 @@ window.Game = (function () {
     applyReveal(candidate.reveal, 0, candidate.cards || []);
     state.pendingRevealKey = null;
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+    });
     Render.renderStatus(state);
     Render.renderReveal(state);
   }
@@ -446,7 +645,10 @@ window.Game = (function () {
 
     if (state.phase !== "play") {
       state.phase = "play";
-      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+        revealWindowOpen: state.revealWindowOpen,
+        allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+      });
       Render.renderReveal(state);
     }
 
@@ -460,7 +662,7 @@ window.Game = (function () {
     state.players[playerIndex] =
       state.players[playerIndex].filter(c => !cards.includes(c));
 
-    Render.renderTrick(state.currentTrick);
+    Render.renderTrick(state.currentTrick, state);
 
     if (state.currentTrick.length === 4) {
       finishTrick();
@@ -493,8 +695,17 @@ window.Game = (function () {
 
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal);
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: state.revealWindowOpen,
+      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
+    });
     Render.renderStatus(state);
+    if (state.players.every(hand => hand.length === 0)) {
+      return;
+    }
+    if (winner !== 0) {
+      setTimeout(() => aiTurn(winner), 300);
+    }
   }
 
   return {

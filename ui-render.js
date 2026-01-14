@@ -34,14 +34,14 @@ window.Render = (function () {
       });
   }
 
-  function renderTrick(trick) {
+  function renderTrick(trick, state) {
     document.querySelectorAll(".played").forEach(e => e.innerHTML = "");
 
     trick.forEach(t => {
       const area = ["south","west","north","east"][t.player];
       const el = document.querySelector(`.${area}`);
-
-      t.cards.forEach(card => {
+      const sortedCards = state ? t.cards.slice().sort((a, b) => sortHandCards(a, b, state)) : t.cards;
+      sortedCards.forEach(card => {
         const c = createCardElement(card);
         el.appendChild(c);
       });
@@ -53,11 +53,20 @@ window.Render = (function () {
     const banker = state.trumpReveal
       ? `庄：${playerLabels[state.trumpReveal.player] || "玩家"}`
       : "庄：未定";
-    const mainCard = state.trumpSuit ? `${state.trumpSuit}${state.level}` : `无主${state.level}`;
+    const isDoubleSuit = state.trumpReveal?.reveal?.type === "ONE_WANG_TWO";
+    const suitDisplay = state.trumpSuit
+      ? `${state.trumpSuit}${isDoubleSuit ? state.trumpSuit : ""}`
+      : "无主";
+    const mainCard = state.trumpSuit ? `${suitDisplay}${state.level}` : `无主${state.level}`;
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
-      `主：${mainCard}\n${banker}\n得分：${state.score}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
+      `主：${mainCard}\n${banker}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
+    const scoreEl = document.getElementById("score-display");
+    if (scoreEl) {
+      scoreEl.textContent = `得分 ${state.score}`;
+    }
+    renderBankerBadge(state);
   }
 
   function renderReveal(state) {
@@ -86,11 +95,32 @@ window.Render = (function () {
     });
   }
 
-  function renderTrumpActions(actions, phase, onReveal) {
+  function renderKitty(state) {
+    const el = document.getElementById("kitty");
+    if (!el) return;
+    if (!state.kittyVisible) {
+      el.classList.add("hidden");
+      el.innerHTML = "";
+      return;
+    }
+    el.classList.remove("hidden");
+    el.innerHTML = "";
+    const cardCount = state.kitty?.length || 8;
+    for (let i = 0; i < cardCount; i += 1) {
+      const card = createCardBackElement();
+      card.classList.add("kitty-card");
+      card.style.left = `${i * 6}px`;
+      card.style.top = `${i * 2}px`;
+      el.appendChild(card);
+    }
+  }
+
+  function renderTrumpActions(actions, phase, onReveal, options = {}) {
     const el = document.getElementById("trump-actions");
     if (!el) return;
-    const shouldShow = phase === "reveal" || phase === "twist" || phase === "dealing";
-    const allowPendingReveal = phase === "dealing";
+    const { revealWindowOpen } = options;
+    const shouldShow = revealWindowOpen ?? (phase === "reveal" || phase === "twist" || phase === "dealing");
+    const allowPendingReveal = options.allowPendingReveal ?? phase === "dealing";
     el.classList.toggle("hidden", !shouldShow);
     if (!shouldShow) return;
 
@@ -171,6 +201,12 @@ window.Render = (function () {
     return el;
   }
 
+  function createCardBackElement() {
+    const el = document.createElement("div");
+    el.className = "card back";
+    return el;
+  }
+
   function cardDisplay(card) {
     if (card.suit === "JOKER") {
       const isBigJoker = card.rank === "BJ";
@@ -196,12 +232,74 @@ window.Render = (function () {
     return key === "♠" || key === "♥" || key === "♣" || key === "♦";
   }
 
+  function animateKittyTransfer(bankerIndex, onComplete) {
+    const kitty = document.getElementById("kitty");
+    if (!kitty) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const area = ["south", "west", "north", "east"][bankerIndex];
+    const target = document.querySelector(`.${area}`);
+    if (!target) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const kittyRect = kitty.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const deltaX = targetRect.left + targetRect.width / 2 - (kittyRect.left + kittyRect.width / 2);
+    const deltaY = targetRect.top + targetRect.height / 2 - (kittyRect.top + kittyRect.height / 2);
+    kitty.style.setProperty("--kitty-target-x", `${deltaX}px`);
+    kitty.style.setProperty("--kitty-target-y", `${deltaY}px`);
+    const cards = kitty.querySelectorAll(".kitty-card");
+    cards.forEach(card => card.classList.add("kitty-move"));
+    setTimeout(() => {
+      cards.forEach(card => card.classList.remove("kitty-move"));
+    }, 700);
+    setTimeout(() => {
+      if (onComplete) onComplete();
+    }, 1400);
+  }
+
+  function renderBankerBadge(state) {
+    const badge = document.getElementById("banker-badge");
+    if (!badge) return;
+    const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
+    if (!area || !state.kittyVisible) {
+      badge.className = "banker-badge hidden";
+      badge.textContent = "";
+      return;
+    }
+    const sideMap = {
+      south: "kitty-south",
+      west: "kitty-west",
+      north: "kitty-north",
+      east: "kitty-east"
+    };
+    badge.textContent = "庄";
+    badge.className = `banker-badge ${sideMap[area] || "kitty-south"}`;
+  }
+
+  function renderCountdown(countdownValue) {
+    const el = document.getElementById("reveal-countdown");
+    if (!el) return;
+    if (countdownValue === null || countdownValue === undefined) {
+      el.classList.add("hidden");
+      el.textContent = "";
+      return;
+    }
+    el.textContent = countdownValue.toString();
+    el.classList.remove("hidden");
+  }
+
   return {
     renderHand,
     renderTrick,
     renderStatus,
     renderTrumpActions,
-    renderReveal
+    renderReveal,
+    renderCountdown,
+    renderKitty,
+    animateKittyTransfer
   };
 
 })();
