@@ -1,4 +1,4 @@
-﻿// trump.js
+﻿// trump-reveal.js
 
 (function () {
 

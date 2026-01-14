@@ -1,4 +1,4 @@
-﻿// game.js
+﻿// game-state.js
 
 window.Game = (function () {
   const state = {
@@ -85,7 +85,7 @@ window.Game = (function () {
         Render.renderReveal(state);
         attemptAutoRevealDuringDeal(playerIndex);
         dealIndex += 1;
-        setTimeout(dealNext, 187.5);
+        setTimeout(dealNext, 150);
       };
       dealNext();
     } else {

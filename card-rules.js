@@ -1,4 +1,4 @@
-﻿// rules.js
+﻿// card-rules.js
 
 (function () {
 
