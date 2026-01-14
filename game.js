@@ -99,14 +99,16 @@ window.Game = (function () {
   function autoRevealFromAI() {
     let best = state.trumpReveal;
     const allowOverride = !isFirstRound();
+    const revealOptions = {
+      requireSameColor: isFirstRound(),
+      allowDoubleJokers: !isFirstRound()
+    };
 
     state.players.forEach((hand, index) => {
       if (index === 0) return;
-      findRevealsForHand(hand, {
-        requireSameColor: isFirstRound(),
-        allowDoubleJokers: !isFirstRound()
-      }).forEach(candidate => {
+      findRevealsForHand(hand, revealOptions).forEach(candidate => {
         if (!candidate.reveal) return;
+        if (!aiRevealAllowed(candidate, revealOptions)) return;
         if (state.trumpReveal && state.trumpReveal.player === index) return;
         if (!best || (allowOverride && Trump.canOverride(candidate.reveal, best.reveal))) {
           best = {
@@ -338,10 +340,12 @@ window.Game = (function () {
     if (state.trumpSuit) return;
     if (playerIndex === 0) return;
     const hand = state.players[playerIndex];
-    const reveal = findRevealsForHand(hand, {
+    const revealOptions = {
       requireSameColor: true,
       allowDoubleJokers: false
-    })[0];
+    };
+    const reveal = findRevealsForHand(hand, revealOptions)
+      .find(candidate => candidate?.reveal && aiRevealAllowed(candidate, revealOptions));
     if (!reveal?.reveal) return;
     applyReveal(reveal.reveal, playerIndex, reveal.cards || []);
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
@@ -379,6 +383,25 @@ window.Game = (function () {
     });
     if (!reveal) return null;
     return { reveal, cards };
+  }
+
+  function aiRevealAllowed(candidate, options) {
+    if (!candidate?.reveal || !candidate.cards?.length) return false;
+    const { requireSameColor } = options;
+    const { trumpSuit } = candidate.reveal;
+    if (trumpSuit) {
+      const joker = candidate.cards.find(card => card.suit === "JOKER");
+      if (!joker) return false;
+      if (requireSameColor && !jokerMatchesSuit(joker, trumpSuit)) {
+        return false;
+      }
+      return true;
+    }
+    const jokers = candidate.cards.filter(card => card.suit === "JOKER");
+    if (jokers.length < 2) return false;
+    const allBig = jokers.every(card => isBigJoker(card));
+    const allSmall = jokers.every(card => isSmallJoker(card));
+    return allBig || allSmall;
   }
 
   function tryPendingReveal() {
