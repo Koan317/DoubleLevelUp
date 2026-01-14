@@ -6,13 +6,38 @@
     ONE_WANG_ONE: 1,
     ONE_WANG_TWO: 2,
     DOUBLE_SJ: 3,
-    DOUBLE_BJ: 4
+    DOUBLE_BJ: 4,
+    SINGLE_JOKER: 1,
+    DOUBLE_SJ_JOKER: 2,
+    DOUBLE_BJ_JOKER: 3
   };
 
   function analyzeReveal(cards, level, options = {}) {
     const { requireSameColor = false, allowDoubleJokers = true } = options;
+    const isJokerLevel = level === "王";
     const jokers = cards.filter(c => c.suit === "JOKER");
     const mains  = cards.filter(c => c.rank === level);
+
+    if (isJokerLevel) {
+      if (jokers.length === 1 && cards.length === 1) {
+        return {
+          type: "SINGLE_JOKER",
+          power: POWER.SINGLE_JOKER,
+          trumpSuit: null,
+          jokerRank: jokers[0].rank
+        };
+      }
+      if (allowDoubleJokers && jokers.length === 2) {
+        const isBig = jokers.every(joker => joker.rank === "BJ");
+        if (!isBig && !jokers.every(joker => joker.rank === "SJ")) return null;
+        return {
+          type: isBig ? "DOUBLE_BJ" : "DOUBLE_SJ",
+          power: isBig ? POWER.DOUBLE_BJ_JOKER : POWER.DOUBLE_SJ_JOKER,
+          trumpSuit: null
+        };
+      }
+      return null;
+    }
 
     if (allowDoubleJokers && jokers.length === 2) {
       return {

@@ -13,6 +13,9 @@
             repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 5px);
         --card-bg: #111;
         --card-fg: #f7f7f7;
+        --card-back-accent: #ffb347;
+        --card-back-glow: #00f5d4;
+        --card-back-secondary: #6c5ce7;
     }
 
     body.dark {
@@ -24,6 +27,9 @@
             repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 6px);
         --card-bg: #fff;
         --card-fg: #111;
+        --card-back-accent: #6a4c93;
+        --card-back-glow: #f7b267;
+        --card-back-secondary: #00bbf9;
     }
 
 #app {
@@ -48,6 +54,8 @@
     position: absolute;
     min-width: 200px;
     min-height: 120px;
+    display: flex;
+    align-items: flex-end;
 }
 
 .north {
@@ -74,11 +82,81 @@
     transform: translateY(-50%);
 }
 
+#reveal-countdown {
+    position: absolute;
+    top: 35%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 72px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.reveal-countdown.hidden {
+    display: none;
+}
+
+#banker-badge {
+    position: absolute;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #fff7d1;
+    background: radial-gradient(circle at top, #ff6b6b, #b51d2d 70%);
+    border: 2px solid rgba(255, 232, 168, 0.9);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    transform: rotate(-8deg);
+    z-index: 6;
+    pointer-events: none;
+}
+
+.banker-badge.hidden {
+    display: none;
+}
+
+.banker-badge.kitty-north {
+    top: calc(50% - 120px);
+    left: 50%;
+    transform: translateX(-50%) rotate(-6deg);
+}
+
+.banker-badge.kitty-south {
+    top: calc(50% + 90px);
+    left: 50%;
+    transform: translateX(-50%) rotate(-6deg);
+}
+
+.banker-badge.kitty-west {
+    top: 50%;
+    left: calc(50% - 140px);
+    transform: translateY(-50%) rotate(-6deg);
+}
+
+.banker-badge.kitty-east {
+    top: 50%;
+    left: calc(50% + 140px);
+    transform: translateY(-50%) rotate(-6deg);
+}
+
 #kitty {
     position: absolute;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 130px;
+    display: block;
+    z-index: 4;
+}
+
+#kitty.hidden {
+    display: none;
 }
 
 #hand-actions {
@@ -187,6 +265,47 @@
     font-weight: bold;
 }
 
+.card.back {
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: absolute;
+    overflow: hidden;
+}
+
+.card.back::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 6px;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.35), transparent 45%),
+        radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.18), transparent 50%),
+        repeating-linear-gradient(45deg, var(--card-back-accent) 0 8px, transparent 8px 16px),
+        repeating-linear-gradient(-45deg, var(--card-back-secondary) 0 6px, transparent 6px 12px),
+        linear-gradient(135deg, transparent, var(--card-back-glow));
+    opacity: 0.95;
+}
+
+.card.back::after {
+    content: "✧";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(12deg);
+    font-size: 32px;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+}
+
+#kitty .kitty-card {
+    transition: transform 0.6s ease, opacity 0.6s ease;
+}
+
+#kitty .kitty-card.kitty-move {
+    transform: translate(var(--kitty-target-x, 0px), var(--kitty-target-y, 0px)) scale(0.9);
+    opacity: 0.3;
+}
+
 .card .corner {
     position: absolute;
     font-size: 16px;
@@ -237,7 +356,19 @@
     cursor: pointer;
 }
 
+#hand .card.deal {
+    cursor: pointer;
+}
+
 #hand .card:first-child {
+    margin-left: 0;
+}
+
+#table .played .card {
+    margin-left: -40px;
+}
+
+#table .played .card:first-child {
     margin-left: 0;
 }
 
@@ -272,6 +403,21 @@
     flex-direction: column;
     gap: 12px;
     border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.score-display {
+    padding: 16px;
+    border-radius: 16px;
+    font-size: 32px;
+    font-weight: 800;
+    text-align: center;
+    color: #fff3b0;
+    background:
+        linear-gradient(135deg, rgba(246, 211, 101, 0.9), rgba(253, 160, 133, 0.9)),
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 6px, rgba(255, 255, 255, 0) 6px 12px);
+    box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.35), 0 6px 14px rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    letter-spacing: 2px;
 }
 
 #status {
