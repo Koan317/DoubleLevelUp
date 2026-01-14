@@ -1,4 +1,4 @@
-﻿// game.js
+﻿// game-state.js
 
 window.Game = (function () {
   const state = {
