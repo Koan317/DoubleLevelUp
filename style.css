@@ -48,6 +48,8 @@
     position: absolute;
     min-width: 200px;
     min-height: 120px;
+    display: flex;
+    align-items: flex-end;
 }
 
 .north {
@@ -72,6 +74,23 @@
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
+}
+
+#reveal-countdown {
+    position: absolute;
+    top: 35%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 72px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.reveal-countdown.hidden {
+    display: none;
 }
 
 #kitty {
@@ -238,6 +257,14 @@
 }
 
 #hand .card:first-child {
+    margin-left: 0;
+}
+
+#table .played .card {
+    margin-left: -40px;
+}
+
+#table .played .card:first-child {
     margin-left: 0;
 }
 

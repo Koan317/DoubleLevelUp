@@ -34,14 +34,14 @@ window.Render = (function () {
       });
   }
 
-  function renderTrick(trick) {
+  function renderTrick(trick, state) {
     document.querySelectorAll(".played").forEach(e => e.innerHTML = "");
 
     trick.forEach(t => {
       const area = ["south","west","north","east"][t.player];
       const el = document.querySelector(`.${area}`);
-
-      t.cards.forEach(card => {
+      const sortedCards = state ? t.cards.slice().sort((a, b) => sortHandCards(a, b, state)) : t.cards;
+      sortedCards.forEach(card => {
         const c = createCardElement(card);
         el.appendChild(c);
       });
@@ -86,11 +86,12 @@ window.Render = (function () {
     });
   }
 
-  function renderTrumpActions(actions, phase, onReveal) {
+  function renderTrumpActions(actions, phase, onReveal, options = {}) {
     const el = document.getElementById("trump-actions");
     if (!el) return;
-    const shouldShow = phase === "reveal" || phase === "twist" || phase === "dealing";
-    const allowPendingReveal = phase === "dealing";
+    const { revealWindowOpen } = options;
+    const shouldShow = revealWindowOpen ?? (phase === "reveal" || phase === "twist" || phase === "dealing");
+    const allowPendingReveal = options.allowPendingReveal ?? phase === "dealing";
     el.classList.toggle("hidden", !shouldShow);
     if (!shouldShow) return;
 
@@ -196,12 +197,25 @@ window.Render = (function () {
     return key === "♠" || key === "♥" || key === "♣" || key === "♦";
   }
 
+  function renderCountdown(countdownValue) {
+    const el = document.getElementById("reveal-countdown");
+    if (!el) return;
+    if (countdownValue === null || countdownValue === undefined) {
+      el.classList.add("hidden");
+      el.textContent = "";
+      return;
+    }
+    el.textContent = countdownValue.toString();
+    el.classList.remove("hidden");
+  }
+
   return {
     renderHand,
     renderTrick,
     renderStatus,
     renderTrumpActions,
-    renderReveal
+    renderReveal,
+    renderCountdown
   };
 
 })();
