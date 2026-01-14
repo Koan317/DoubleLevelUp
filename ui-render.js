@@ -92,28 +92,47 @@ window.Render = (function () {
     const shouldShow = phase === "reveal" || phase === "twist" || phase === "dealing";
     const allowPendingReveal = phase === "dealing";
     el.classList.toggle("hidden", !shouldShow);
-    el.innerHTML = "";
     if (!shouldShow) return;
 
+    const existingButtons = el._actionButtons || new Map();
+    const actionKeys = new Set(actions.map(action => action.key));
+
     actions.forEach(action => {
-      const button = document.createElement("button");
-      button.className = "trump-action";
+      let button = existingButtons.get(action.key);
+      if (!button) {
+        button = document.createElement("button");
+        button.className = "trump-action";
+        button.dataset.actionKey = action.key;
+        el.appendChild(button);
+        existingButtons.set(action.key, button);
+      }
+
+      const canClick = action.enabled || (allowPendingReveal && isSuitKey(action.key));
       button.textContent = action.label;
-      if (!action.enabled) {
+      button.disabled = !canClick;
+      button.className = "trump-action";
+      if (action.color) {
+        button.classList.add(action.color);
+      }
+      if (action.enabled) {
+        button.classList.add("enabled");
+      } else {
         button.classList.add("disabled");
         if (allowPendingReveal && isSuitKey(action.key)) {
           button.classList.add("pending-allowed");
-          button.onclick = () => onReveal(action.key);
         }
-      } else {
-        if (action.color) {
-          button.classList.add(action.color);
-        }
-        button.classList.add("enabled");
-        button.onclick = () => onReveal(action.key);
       }
-      el.appendChild(button);
+      button.onclick = canClick ? () => onReveal(action.key) : null;
     });
+
+    existingButtons.forEach((button, key) => {
+      if (!actionKeys.has(key)) {
+        button.remove();
+        existingButtons.delete(key);
+      }
+    });
+
+    el._actionButtons = existingButtons;
   }
 
   function sortHandCards(a, b, state) {
