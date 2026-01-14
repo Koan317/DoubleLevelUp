@@ -12,6 +12,10 @@
     return cards.reduce((s, c) => s + cardScore(c), 0);
   }
 
+  function totalTrickScore(cards) {
+    return cards.reduce((s, c) => s + cardScore(c), 0);
+  }
+
   /**
    * 根据“最后一回合赢家出的牌型”算倍率
    */
@@ -69,6 +73,11 @@
     settleBottom,
     totalBottomScore,
     calcMultiplierByWinningPlay
+  };
+
+  window.Score = {
+    cardScore,
+    totalTrickScore
   };
 
 })();

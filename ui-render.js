@@ -5,6 +5,7 @@ window.Render = (function () {
   function renderHand(hand, state, onSelect, selectedCards = [], options = {}) {
     const el = document.getElementById("hand");
     el.innerHTML = "";
+    el.classList.toggle("dealing", state.phase === "dealing");
     const selectedSet = new Set(selectedCards);
     const { animateDeal = false } = options;
     const dealIndexByCard = new Map();
@@ -67,6 +68,7 @@ window.Render = (function () {
       scoreEl.textContent = `得分 ${state.score}`;
     }
     renderBankerBadge(state);
+    renderRuleMessage(state.invalidActionReason);
   }
 
   function renderReveal(state) {
@@ -291,6 +293,12 @@ window.Render = (function () {
     el.classList.remove("hidden");
   }
 
+  function renderRuleMessage(message) {
+    const el = document.getElementById("rule-message");
+    if (!el) return;
+    el.textContent = message || "";
+  }
+
   return {
     renderHand,
     renderTrick,
@@ -299,7 +307,8 @@ window.Render = (function () {
     renderReveal,
     renderCountdown,
     renderKitty,
-    animateKittyTransfer
+    animateKittyTransfer,
+    renderRuleMessage
   };
 
 })();

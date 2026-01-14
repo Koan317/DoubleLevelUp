@@ -22,6 +22,7 @@ window.Game = (function () {
     kittyVisible: false,
     phase: "play",
     round: 0,
+    invalidActionReason: null,
   };
 
   let revealCountdownTimer = null;
@@ -149,6 +150,7 @@ window.Game = (function () {
     state.revealCountdown = null;
     state.revealWindowOpen = isFirstRound;
     state.kittyVisible = false;
+    state.invalidActionReason = null;
     state.bankerTeam = [];
     state.scoreTeam = [];
     state.phase = isFirstRound ? "dealing" : "reveal";
@@ -168,6 +170,8 @@ window.Game = (function () {
 
     const finishDeal = () => {
       const finalizeRevealWindow = () => {
+        state.kittyVisible = true;
+        Render.renderKitty(state);
         if (!state.trumpSuit) {
           if (isFirstRound) {
             resolveKittyReveal();
@@ -185,15 +189,12 @@ window.Game = (function () {
         });
         Render.renderStatus(state);
         Render.renderReveal(state);
-        Render.renderKitty(state);
         if (state.trumpReveal) {
           beginKittyPhase();
         }
       };
 
       state.phase = state.trumpSuit ? "twist" : "reveal";
-      state.kittyVisible = true;
-      Render.renderKitty(state);
 
       if (shouldStartRevealCountdown()) {
         state.revealWindowOpen = true;
@@ -363,7 +364,7 @@ window.Game = (function () {
   function onHumanPlaySelected() {
     if (!state.selectedCards.length) return;
     const cards = state.selectedCards.slice();
-    const ok = tryPlay(0, cards);
+    const ok = tryPlay(0, cards, { source: "玩家" });
     if (!ok) return;
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
@@ -619,8 +620,9 @@ window.Game = (function () {
     Render.renderReveal(state);
   }
 
-  function tryPlay(playerIndex, cards) {
+  function tryPlay(playerIndex, cards, options = {}) {
     const leadPattern = state.currentTrick[0]?.pattern || null;
+    const sourceLabel = options.source || "操作";
 
     // 跟牌校验
     if (leadPattern) {
@@ -631,11 +633,14 @@ window.Game = (function () {
         trumpInfo: state
       });
       if (!check.ok) {
-        alert(check.reason);
+        state.invalidActionReason = `${sourceLabel}不合法：${check.reason}`;
+        Render.renderRuleMessage(state.invalidActionReason);
         return false;
       }
     }
 
+    state.invalidActionReason = null;
+    Render.renderRuleMessage(state.invalidActionReason);
     commitPlay(playerIndex, cards);
     return true;
   }
@@ -674,6 +679,9 @@ window.Game = (function () {
   }
 
   function aiTurn(playerIndex) {
+    if (playerIndex === 0) {
+      return;
+    }
     const lead = state.currentTrick[0]?.pattern || null;
     const cards = AI.aiPlay(
       state.players[playerIndex],
@@ -681,7 +689,7 @@ window.Game = (function () {
       state,
       playerIndex
     );
-    commitPlay(playerIndex, cards);
+    tryPlay(playerIndex, cards, { source: "AI" });
   }
 
   function finishTrick() {
@@ -689,6 +697,10 @@ window.Game = (function () {
       state.currentTrick,
       state
     );
+    const trickCards = state.currentTrick.flatMap(play => play.cards);
+    if (state.scoreTeam.includes(winner)) {
+      state.score += Score.totalTrickScore(trickCards);
+    }
 
     state.turn = winner;
     state.currentTrick = [];
