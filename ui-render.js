@@ -23,8 +23,8 @@ window.Render = (function () {
         if (animateDeal) {
           c.classList.add("deal");
           const dealIndex = dealIndexByCard.get(card) ?? 0;
-          c.style.animationDelay = `${dealIndex * 0.75}s`;
-          c.style.animationDuration = "0.75s";
+          c.style.animationDelay = `${dealIndex * 0.6}s`;
+          c.style.animationDuration = "0.6s";
         }
         if (selectedSet.has(card)) {
           c.classList.add("selected");
