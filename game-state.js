@@ -531,7 +531,6 @@ window.Game = (function () {
     state.players[bankerIndex] = state.players[bankerIndex]
       .filter(card => !discard.includes(card));
     state.kitty = discard;
-    state.kittyVisible = false;
     Render.renderKitty(state);
   }
 
@@ -544,7 +543,6 @@ window.Game = (function () {
     const discard = state.selectedCards.slice();
     state.players[0] = state.players[0].filter(card => !discard.includes(card));
     state.kitty = discard;
-    state.kittyVisible = false;
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
     Render.renderKitty(state);

@@ -266,7 +266,7 @@ window.Render = (function () {
     const badge = document.getElementById("banker-badge");
     if (!badge) return;
     const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
-    if (!area || !state.kittyVisible) {
+    if (!area) {
       badge.className = "banker-badge hidden";
       badge.textContent = "";
       return;
