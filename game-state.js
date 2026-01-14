@@ -168,6 +168,8 @@ window.Game = (function () {
 
     const finishDeal = () => {
       const finalizeRevealWindow = () => {
+        state.kittyVisible = true;
+        Render.renderKitty(state);
         if (!state.trumpSuit) {
           if (isFirstRound) {
             resolveKittyReveal();
@@ -185,15 +187,12 @@ window.Game = (function () {
         });
         Render.renderStatus(state);
         Render.renderReveal(state);
-        Render.renderKitty(state);
         if (state.trumpReveal) {
           beginKittyPhase();
         }
       };
 
       state.phase = state.trumpSuit ? "twist" : "reveal";
-      state.kittyVisible = true;
-      Render.renderKitty(state);
 
       if (shouldStartRevealCountdown()) {
         state.revealWindowOpen = true;

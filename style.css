@@ -13,9 +13,11 @@
             repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 5px);
         --card-bg: #111;
         --card-fg: #f7f7f7;
-        --card-back-accent: #ffb347;
-        --card-back-glow: #00f5d4;
-        --card-back-secondary: #6c5ce7;
+        --card-back-base: #0a0f1f;
+        --card-back-accent: #f5c46b;
+        --card-back-glow: #21c7b7;
+        --card-back-secondary: #7c5cff;
+        --card-back-text: rgba(255, 244, 214, 0.85);
     }
 
     body.dark {
@@ -27,9 +29,11 @@
             repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 6px);
         --card-bg: #fff;
         --card-fg: #111;
+        --card-back-base: #fdf8f0;
         --card-back-accent: #6a4c93;
-        --card-back-glow: #f7b267;
-        --card-back-secondary: #00bbf9;
+        --card-back-glow: #ff9f68;
+        --card-back-secondary: #1f9ad6;
+        --card-back-text: rgba(63, 45, 92, 0.85);
     }
 
 #app {
@@ -121,26 +125,26 @@
 }
 
 .banker-badge.kitty-north {
-    top: calc(50% - 120px);
+    top: calc(50% - (var(--kitty-height) / 2) - 26px);
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-south {
-    top: calc(50% + 90px);
+    top: calc(50% + (var(--kitty-height) / 2) + 6px);
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-west {
     top: 50%;
-    left: calc(50% - 140px);
+    left: calc(50% - (var(--kitty-width) / 2) - 36px);
     transform: translateY(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-east {
     top: 50%;
-    left: calc(50% + 140px);
+    left: calc(50% + (var(--kitty-width) / 2) + 6px);
     transform: translateY(-50%) rotate(-6deg);
 }
 
@@ -149,8 +153,10 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    width: 200px;
-    height: 130px;
+    --kitty-width: 200px;
+    --kitty-height: 130px;
+    width: var(--kitty-width);
+    height: var(--kitty-height);
     display: block;
     z-index: 4;
 }
@@ -266,8 +272,11 @@
 }
 
 .card.back {
-    background: var(--card-bg);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.05), transparent 60%),
+        linear-gradient(220deg, rgba(0, 0, 0, 0.12), transparent 55%),
+        var(--card-back-base);
+    border: 1px solid rgba(0, 0, 0, 0.15);
     position: absolute;
     overflow: hidden;
 }
@@ -275,26 +284,27 @@
 .card.back::before {
     content: "";
     position: absolute;
-    inset: 8px;
+    inset: 7px;
     border-radius: 6px;
     background:
-        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.35), transparent 45%),
-        radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.18), transparent 50%),
-        repeating-linear-gradient(45deg, var(--card-back-accent) 0 8px, transparent 8px 16px),
-        repeating-linear-gradient(-45deg, var(--card-back-secondary) 0 6px, transparent 6px 12px),
-        linear-gradient(135deg, transparent, var(--card-back-glow));
-    opacity: 0.95;
+        radial-gradient(circle at 20% 25%, rgba(255, 255, 255, 0.32), transparent 46%),
+        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.2), transparent 48%),
+        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0 2px, transparent 2px 8px),
+        repeating-linear-gradient(45deg, var(--card-back-secondary) 0 7px, transparent 7px 14px),
+        linear-gradient(135deg, var(--card-back-accent), var(--card-back-glow));
+    opacity: 0.9;
 }
 
 .card.back::after {
-    content: "✧";
+    content: "双升";
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(12deg);
-    font-size: 32px;
-    color: rgba(255, 255, 255, 0.85);
-    text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+    font-size: 26px;
+    letter-spacing: 6px;
+    color: var(--card-back-text);
+    text-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
 }
 
 #kitty .kitty-card {
