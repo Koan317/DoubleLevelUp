@@ -11,8 +11,9 @@
 
     const mapped = cards.map(c => ({
       ...c,
-      isTrump: isTrumpCard(c, trumpInfo),
-      normRank: normalizeRank(c)
+      isTrump: Rules.isTrump(c, trumpInfo),
+      normRank: normalizeRank(c),
+      power: Rules.cardPower(c, trumpInfo)
     }));
 
     const suitType = mapped.every(c => c.isTrump) ? "trump" : "side";
@@ -39,7 +40,8 @@
       type = "throw";
     }
 
-    const mainRank = getMainRank(ranks, trumpInfo);
+    const rankPowers = getRankPowers(groups, trumpInfo);
+    const mainRank = getMainRank(ranks, rankPowers);
 
     return {
       type,
@@ -50,7 +52,8 @@
       isTrump: suitType === "trump",
 
       mainRank,
-      power: rankPower(mainRank, trumpInfo)
+      power: rankPowers[mainRank] ?? 0,
+      compareValue: rankPowers[mainRank] ?? 0
     };
   }
 
@@ -63,24 +66,22 @@
     return c.rank;
   }
 
-  function isTrumpCard(c, trumpInfo) {
-    if (c.suit === "JOKER") return true;
-    if (c.rank === trumpInfo.level) return true;
-    if (c.suit === trumpInfo.trumpSuit) return true;
-    return false;
+  function getRankPowers(groups) {
+    const powers = {};
+    Object.keys(groups).forEach(rank => {
+      powers[rank] = Math.max(...groups[rank].map(c => c.power));
+    });
+    return powers;
   }
 
-  function rankPower(rank, trumpInfo) {
-    if (rank === "BJ") return 100;
-    if (rank === "SJ") return 90;
-    if (rank === trumpInfo.level) return 80;
-    return BASE_ORDER.indexOf(rank);
-  }
-
-  function getMainRank(ranks, trumpInfo) {
+  function getMainRank(ranks, rankPowers) {
     return ranks
       .slice()
-      .sort((a, b) => rankPower(b, trumpInfo) - rankPower(a, trumpInfo))[0];
+      .sort((a, b) => {
+        const powerDiff = (rankPowers[b] ?? 0) - (rankPowers[a] ?? 0);
+        if (powerDiff !== 0) return powerDiff;
+        return BASE_ORDER.indexOf(b) - BASE_ORDER.indexOf(a);
+      })[0];
   }
 
   function isTractor(groups, trumpInfo) {
@@ -92,6 +93,7 @@
     const order = getSequenceOrder(trumpInfo);
     const idxs = pairRanks
       .map(r => order.indexOf(r))
+      .filter(i => i >= 0)
       .sort((a,b)=>a-b);
 
     for (let i = 1; i < idxs.length; i++) {
@@ -106,7 +108,8 @@
 
   // 挂到全局
   window.Pattern = {
-    analyzePlay
+    analyzePlay,
+    getSequenceOrder
   };
 
 })();

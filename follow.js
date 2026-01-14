@@ -97,9 +97,11 @@ window.Follow = (function () {
     const count = {};
     ranks.forEach(r => count[r] = (count[r] || 0) + 1);
 
+    const order = Pattern.getSequenceOrder(trumpInfo);
     const pairs = Object.keys(count)
       .filter(r => count[r] >= 2)
-      .map(r => Pattern.rankOrder.indexOf(r))
+      .map(r => order.indexOf(r))
+      .filter(i => i >= 0)
       .sort((a,b)=>a-b);
 
     let max = 1, cur = 1;
