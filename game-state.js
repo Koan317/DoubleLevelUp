@@ -121,6 +121,7 @@ window.Game = (function () {
   function startPlayFromBanker() {
     state.phase = "play";
     state.turn = state.trumpReveal?.player ?? 0;
+    Render.setPlayButtonEnabled(state.turn === 0);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: false,
       allowPendingReveal: false
@@ -159,6 +160,7 @@ window.Game = (function () {
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
       animateDeal: false
     });
+    Render.setPlayButtonEnabled(false);
     clearRevealCountdown();
     Render.renderKitty(state);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
@@ -368,6 +370,7 @@ window.Game = (function () {
     if (!ok) return;
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.setPlayButtonEnabled(false);
   }
 
   function onHumanReveal(key) {
@@ -675,6 +678,9 @@ window.Game = (function () {
     }
 
     const next = (playerIndex + 1) % 4;
+    if (next === 0) {
+      Render.setPlayButtonEnabled(true);
+    }
     setTimeout(() => aiTurn(next), 300);
   }
 
@@ -712,6 +718,7 @@ window.Game = (function () {
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);
+    Render.setPlayButtonEnabled(winner === 0);
     if (state.players.every(hand => hand.length === 0)) {
       return;
     }

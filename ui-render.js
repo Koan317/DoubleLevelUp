@@ -299,6 +299,12 @@ window.Render = (function () {
     el.textContent = message || "";
   }
 
+  function setPlayButtonEnabled(enabled) {
+    const button = document.getElementById("playButton");
+    if (!button) return;
+    button.disabled = !enabled;
+  }
+
   return {
     renderHand,
     renderTrick,
@@ -308,7 +314,8 @@ window.Render = (function () {
     renderCountdown,
     renderKitty,
     animateKittyTransfer,
-    renderRuleMessage
+    renderRuleMessage,
+    setPlayButtonEnabled
   };
 
 })();
