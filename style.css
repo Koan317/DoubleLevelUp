@@ -112,7 +112,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    font-size: 30px;
     font-weight: 700;
     cursor: pointer;
     padding: 0;
@@ -137,6 +137,11 @@
     background: rgba(180, 180, 180, 0.8);
     cursor: default;
     pointer-events: none;
+}
+
+.trump-action.disabled.pending-allowed {
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .trump-action.disabled:hover {

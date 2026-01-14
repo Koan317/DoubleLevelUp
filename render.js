@@ -90,6 +90,7 @@ window.Render = (function () {
     const el = document.getElementById("trump-actions");
     if (!el) return;
     const shouldShow = phase === "reveal" || phase === "twist" || phase === "dealing";
+    const allowPendingReveal = phase === "dealing";
     el.classList.toggle("hidden", !shouldShow);
     el.innerHTML = "";
     if (!shouldShow) return;
@@ -100,6 +101,10 @@ window.Render = (function () {
       button.textContent = action.label;
       if (!action.enabled) {
         button.classList.add("disabled");
+        if (allowPendingReveal && isSuitKey(action.key)) {
+          button.classList.add("pending-allowed");
+          button.onclick = () => onReveal(action.key);
+        }
       } else {
         if (action.color) {
           button.classList.add(action.color);
@@ -166,6 +171,10 @@ window.Render = (function () {
       center: card.suit,
       isRed
     };
+  }
+
+  function isSuitKey(key) {
+    return key === "♠" || key === "♥" || key === "♣" || key === "♦";
   }
 
   return {

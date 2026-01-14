@@ -204,7 +204,13 @@ window.Game = (function () {
 
   function onHumanReveal(key) {
     if (state.phase !== "reveal" && state.phase !== "twist" && state.phase !== "dealing") return;
-    const candidate = findHumanReveal(key);
+    let candidate = null;
+    if (isFirstRound() && !state.trumpReveal && isSuitKey(key)) {
+      candidate = getFirstRoundRevealForSuit(key);
+    }
+    if (!candidate) {
+      candidate = findHumanReveal(key);
+    }
     if (!candidate?.reveal) {
       if (state.phase === "dealing" && isFirstRound() && !state.trumpReveal) {
         state.pendingRevealKey = key;
@@ -321,6 +327,10 @@ window.Game = (function () {
 
   function jokerMatchesSuit(joker, suit) {
     return isRedSuit(suit) ? isBigJoker(joker) : isSmallJoker(joker);
+  }
+
+  function isSuitKey(key) {
+    return key === "♠" || key === "♥" || key === "♣" || key === "♦";
   }
 
   function attemptAutoRevealDuringDeal(playerIndex) {
