@@ -34,15 +34,7 @@ window.AI = (function () {
     }
 
     // ========= 跟牌 =========
-    // 尝试找能压过首家的最小一张
-    for (const item of analyzed) {
-      if (beats(item.pattern, leadPattern, state)) {
-        return [item.card];
-      }
-    }
-
-    // 压不了 → 出最小（可能是贴牌）
-    return [analyzed[0].card];
+    return pickLegalFollow(analyzed, hand, leadPattern, state);
   }
 
   /* ================= 工具函数 ================= */
@@ -67,6 +59,66 @@ window.AI = (function () {
     }
 
     return myPattern.power > leadPattern.power;
+  }
+
+  function pickLegalFollow(analyzed, hand, leadPattern, state) {
+    const needCount = leadPattern.length;
+
+    if (needCount === 1) {
+      const legalSingles = analyzed.filter(item => {
+        const check = Follow.validateFollowPlay({
+          leadPattern,
+          followCards: [item.card],
+          handCards: hand,
+          trumpInfo: state
+        });
+        return check.ok;
+      });
+
+      if (!legalSingles.length) {
+        return [analyzed[0].card];
+      }
+
+      for (const item of legalSingles) {
+        if (beats(item.pattern, leadPattern, state)) {
+          return [item.card];
+        }
+      }
+
+      return [legalSingles[0].card];
+    }
+
+    const sortedCards = analyzed.map(item => item.card);
+    let result = null;
+
+    function search(start, combo) {
+      if (result) return;
+      if (combo.length === needCount) {
+        const check = Follow.validateFollowPlay({
+          leadPattern,
+          followCards: combo,
+          handCards: hand,
+          trumpInfo: state
+        });
+        if (check.ok) {
+          result = combo.slice();
+        }
+        return;
+      }
+
+      for (let i = start; i <= sortedCards.length - (needCount - combo.length); i++) {
+        combo.push(sortedCards[i]);
+        search(i + 1, combo);
+        combo.pop();
+        if (result) return;
+      }
+    }
+
+    search(0, []);
+
+    if (result) return result;
+
+    return sortedCards.slice(0, needCount);
   }
 
   return {

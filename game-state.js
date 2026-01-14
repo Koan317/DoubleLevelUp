@@ -670,7 +670,7 @@ window.Game = (function () {
     Render.renderTrick(state.currentTrick, state);
 
     if (state.currentTrick.length === 4) {
-      finishTrick();
+      setTimeout(() => finishTrick(), 2000);
       return;
     }
 
