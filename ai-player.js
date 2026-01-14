@@ -1,4 +1,4 @@
-﻿// ai.js
+﻿// ai-player.js
 
 window.AI = (function () {
 

@@ -1,4 +1,4 @@
-﻿// card.js
+﻿// deck.js
 
 window.Cards = (function () {
 

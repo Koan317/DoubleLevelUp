@@ -1,4 +1,4 @@
-﻿// render.js
+﻿// ui-renderer.js
 
 window.Render = (function () {
 

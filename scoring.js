@@ -1,4 +1,4 @@
-﻿// bottom.js
+﻿// scoring.js
 
 (function () {
 
