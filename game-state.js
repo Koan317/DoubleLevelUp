@@ -19,6 +19,7 @@ window.Game = (function () {
     pendingRevealKey: null,
     revealCountdown: null,
     revealWindowOpen: false,
+    kittyVisible: false,
     phase: "play",
     round: 0,
   };
@@ -147,6 +148,7 @@ window.Game = (function () {
     state.pendingRevealKey = null;
     state.revealCountdown = null;
     state.revealWindowOpen = isFirstRound;
+    state.kittyVisible = false;
     state.bankerTeam = [];
     state.scoreTeam = [];
     state.phase = isFirstRound ? "dealing" : "reveal";
@@ -190,6 +192,8 @@ window.Game = (function () {
       };
 
       state.phase = state.trumpSuit ? "twist" : "reveal";
+      state.kittyVisible = true;
+      Render.renderKitty(state);
 
       if (shouldStartRevealCountdown()) {
         state.revealWindowOpen = true;

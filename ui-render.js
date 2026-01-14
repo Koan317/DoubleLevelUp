@@ -98,6 +98,12 @@ window.Render = (function () {
   function renderKitty(state) {
     const el = document.getElementById("kitty");
     if (!el) return;
+    if (!state.kittyVisible) {
+      el.classList.add("hidden");
+      el.innerHTML = "";
+      return;
+    }
+    el.classList.remove("hidden");
     el.innerHTML = "";
     const cardCount = state.kitty?.length || 8;
     for (let i = 0; i < cardCount; i += 1) {
@@ -258,13 +264,19 @@ window.Render = (function () {
     const badge = document.getElementById("banker-badge");
     if (!badge) return;
     const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
-    if (!area) {
+    if (!area || !state.kittyVisible) {
       badge.className = "banker-badge hidden";
       badge.textContent = "";
       return;
     }
+    const sideMap = {
+      south: "kitty-south",
+      west: "kitty-west",
+      north: "kitty-north",
+      east: "kitty-east"
+    };
     badge.textContent = "庄";
-    badge.className = `banker-badge ${area}`;
+    badge.className = `banker-badge ${sideMap[area] || "kitty-south"}`;
   }
 
   function renderCountdown(countdownValue) {
