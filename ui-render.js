@@ -5,6 +5,7 @@ window.Render = (function () {
   function renderHand(hand, state, onSelect, selectedCards = [], options = {}) {
     const el = document.getElementById("hand");
     el.innerHTML = "";
+    el.classList.toggle("dealing", state.phase === "dealing");
     const selectedSet = new Set(selectedCards);
     const { animateDeal = false } = options;
     const dealIndexByCard = new Map();

@@ -673,6 +673,9 @@ window.Game = (function () {
   }
 
   function aiTurn(playerIndex) {
+    if (playerIndex === 0) {
+      return;
+    }
     const lead = state.currentTrick[0]?.pattern || null;
     const cards = AI.aiPlay(
       state.players[playerIndex],

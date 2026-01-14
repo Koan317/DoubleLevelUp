@@ -125,26 +125,26 @@
 }
 
 .banker-badge.kitty-north {
-    top: calc(50% - (var(--kitty-height) / 2) - 26px);
+    top: calc(50% - (var(--kitty-height) / 2) - 8px);
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-south {
-    top: calc(50% + (var(--kitty-height) / 2) + 6px);
+    top: calc(50% + (var(--kitty-height) / 2) + 8px);
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-west {
     top: 50%;
-    left: calc(50% - (var(--kitty-width) / 2) - 36px);
+    left: calc(50% - (var(--kitty-width) / 2) - 8px);
     transform: translateY(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-east {
     top: 50%;
-    left: calc(50% + (var(--kitty-width) / 2) + 6px);
+    left: calc(50% + (var(--kitty-width) / 2) + 8px);
     transform: translateY(-50%) rotate(-6deg);
 }
 
@@ -296,7 +296,7 @@
 }
 
 .card.back::after {
-    content: "双升";
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -368,6 +368,11 @@
 
 #hand .card.deal {
     cursor: pointer;
+}
+
+#hand.dealing .card,
+#hand.dealing .card.deal {
+    cursor: default;
 }
 
 #hand .card:first-child {
