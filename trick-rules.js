@@ -36,6 +36,11 @@
       if (!allMatchSuit) {
         return illegal("有同花色必须全跟");
       }
+      if (leadPattern.type !== "throw" &&
+          (followPattern.type !== leadPattern.type ||
+           followPattern.length !== leadPattern.length)) {
+        return illegal("需跟同类型同数量");
+      }
     }
 
     // 3️⃣ 有同花色但数量不足 → 必须出完同花色再贴牌
