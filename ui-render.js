@@ -181,9 +181,10 @@ window.Render = (function () {
   }
 
   function suitOrder(card, state) {
-    const order = ["♠", "♥", "♣", "♦", "JOKER"];
+    if (Rules.isTrump(card, state)) return 0;
+    const order = ["♠", "♥", "♣", "♦"];
     const index = order.indexOf(card.suit);
-    return index === -1 ? order.length + 1 : index;
+    return index === -1 ? order.length + 1 : index + 1;
   }
 
   function createCardElement(card) {
