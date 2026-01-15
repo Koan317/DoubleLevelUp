@@ -31,6 +31,13 @@ window.Game = (function () {
 
   let revealCountdownTimer = null;
 
+  function formatCardForLog(card) {
+    if (card.suit === "JOKER") {
+      return card.rank === "BJ" ? "大王" : "小王";
+    }
+    return `${card.rank}${card.suit}`;
+  }
+
   function clearRevealCountdown() {
     if (revealCountdownTimer) {
       clearTimeout(revealCountdownTimer);
@@ -849,6 +856,11 @@ window.Game = (function () {
   }
 
   function finishTrick() {
+    const trickLog = state.currentTrick.map(play => ({
+      player: play.player,
+      cards: play.cards.map(formatCardForLog)
+    }));
+    console.log("本回合出牌", trickLog);
     const winner = Compare.compareTrickPlays(
       state.currentTrick,
       state
@@ -879,11 +891,6 @@ window.Game = (function () {
     }
     if (winner !== 0) {
       setTimeout(() => aiTurn(winner), 1000);
-    } else {
-      console.log("下一轮首家：玩家", {
-        phase: state.phase,
-        playerHand: state.players[0].length
-      });
     }
   }
 
