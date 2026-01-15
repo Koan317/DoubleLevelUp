@@ -65,15 +65,9 @@ window.AI = (function () {
     const needCount = leadPattern.length;
 
     if (needCount === 1) {
-      const legalSingles = analyzed.filter(item => {
-        const check = Follow.validateFollowPlay({
-          leadPattern,
-          followCards: [item.card],
-          handCards: hand,
-          trumpInfo: state
-        });
-        return check.ok;
-      });
+      const legalSingles = analyzed.filter(item =>
+        isLegalFollow([item.card], leadPattern, hand, state)
+      );
 
       if (!legalSingles.length) {
         return [analyzed[0].card];
@@ -89,40 +83,62 @@ window.AI = (function () {
     }
 
     const sortedCards = analyzed.map(item => item.card);
-    let result = null;
+    const legalCombos = findLegalCombos(sortedCards, leadPattern, hand, state);
+
+    if (!legalCombos.length) {
+      return sortedCards.slice(0, needCount);
+    }
+
+    return legalCombos[0];
+  }
+
+  function findLegalFollow(hand, leadPattern, state) {
+    if (!leadPattern) {
+      return hand.length ? [hand[0]] : [];
+    }
+    const sortedCards = hand.slice();
+    const legalCombos = findLegalCombos(sortedCards, leadPattern, hand, state);
+    if (legalCombos.length) {
+      return legalCombos[0];
+    }
+    return sortedCards.slice(0, leadPattern.length);
+  }
+
+  function findLegalCombos(sortedCards, leadPattern, hand, state) {
+    const needCount = leadPattern.length;
+    const result = [];
 
     function search(start, combo) {
-      if (result) return;
       if (combo.length === needCount) {
-        const check = Follow.validateFollowPlay({
-          leadPattern,
-          followCards: combo,
-          handCards: hand,
-          trumpInfo: state
-        });
-        if (check.ok) {
-          result = combo.slice();
+        if (isLegalFollow(combo, leadPattern, hand, state)) {
+          result.push(combo.slice());
         }
         return;
       }
-
       for (let i = start; i <= sortedCards.length - (needCount - combo.length); i++) {
         combo.push(sortedCards[i]);
         search(i + 1, combo);
         combo.pop();
-        if (result) return;
       }
     }
 
     search(0, []);
+    return result;
+  }
 
-    if (result) return result;
-
-    return sortedCards.slice(0, needCount);
+  function isLegalFollow(cards, leadPattern, hand, state) {
+    const check = Follow.validateFollowPlay({
+      leadPattern,
+      followCards: cards,
+      handCards: hand,
+      trumpInfo: state
+    });
+    return check.ok;
   }
 
   return {
-    aiPlay
+    aiPlay,
+    findLegalFollow
   };
 
 })();

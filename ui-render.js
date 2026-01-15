@@ -281,7 +281,7 @@ window.Render = (function () {
     }
 
     const tableRect = table.getBoundingClientRect();
-    const offset = 156;
+    const offset = Math.min(tableRect.width, tableRect.height) * 0.32;
     let top = tableRect.height / 2;
     let left = tableRect.width / 2;
 

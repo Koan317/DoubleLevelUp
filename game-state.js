@@ -839,7 +839,13 @@ window.Game = (function () {
       state,
       playerIndex
     );
-    tryPlay(playerIndex, cards, { source: "AI" });
+    const ok = tryPlay(playerIndex, cards, { source: "AI" });
+    if (!ok && lead) {
+      const fallback = AI.findLegalFollow(state.players[playerIndex], lead, state);
+      if (fallback?.length) {
+        tryPlay(playerIndex, fallback, { source: "AI" });
+      }
+    }
   }
 
   function finishTrick() {
