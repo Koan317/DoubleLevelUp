@@ -778,6 +778,14 @@ window.Game = (function () {
   function tryPlay(playerIndex, cards, options = {}) {
     const leadPattern = state.currentTrick[0]?.pattern || null;
     const sourceLabel = options.source || "操作";
+    const playPattern = Pattern.analyzePlay(cards, state);
+
+    // 首家禁止混合花色出牌
+    if (!leadPattern && playPattern.isMixedSuit) {
+      state.invalidActionReason = `${sourceLabel}不合法：首家不能出混合花色`;
+      Render.renderRuleMessage(state.invalidActionReason);
+      return false;
+    }
 
     // 跟牌校验
     if (leadPattern) {
