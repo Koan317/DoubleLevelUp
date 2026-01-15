@@ -125,26 +125,26 @@
 }
 
 .banker-badge.kitty-north {
-    top: calc(50% - (var(--kitty-height) / 2) - 8px);
+    top: calc(50% - (var(--kitty-height) / 2) - 2px);
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-south {
-    top: calc(50% + (var(--kitty-height) / 2) + 8px);
+    top: calc(50% + (var(--kitty-height) / 2) + 2px);
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-west {
     top: 50%;
-    left: calc(50% - (var(--kitty-width) / 2) - 8px);
+    left: calc(50% - (var(--kitty-width) / 2) - 2px);
     transform: translateY(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-east {
     top: 50%;
-    left: calc(50% + (var(--kitty-width) / 2) + 8px);
+    left: calc(50% + (var(--kitty-width) / 2) + 2px);
     transform: translateY(-50%) rotate(-6deg);
 }
 
