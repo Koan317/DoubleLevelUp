@@ -138,7 +138,7 @@ window.Game = (function () {
     state.phase = "play";
     state.turn = state.trumpReveal?.player ?? 0;
     Render.setPlayButtonLabel("出牌");
-    Render.setPlayButtonVisible(state.turn === 0);
+    Render.setPlayButtonVisible(true);
     Render.setPlayButtonEnabled(state.turn === 0);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: false,
@@ -839,6 +839,7 @@ window.Game = (function () {
     });
     Render.renderStatus(state);
     Render.setPlayButtonEnabled(winner === 0);
+    Render.setPlayButtonVisible(true);
     if (isLastTrick) {
       settleRound({ winner, winningPattern: winningPlay?.pattern });
       return;
