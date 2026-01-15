@@ -30,6 +30,7 @@ window.Game = (function () {
   };
 
   let revealCountdownTimer = null;
+  const playerLabels = ["南家", "西家", "北家", "东家"];
 
   function formatCardForLog(card) {
     if (card.suit === "JOKER") {
@@ -858,6 +859,7 @@ window.Game = (function () {
   function finishTrick() {
     const trickLog = state.currentTrick.map(play => ({
       player: play.player,
+      label: playerLabels[play.player] || `玩家${play.player}`,
       cards: play.cards.map(formatCardForLog)
     }));
     console.log("本回合出牌", trickLog);
