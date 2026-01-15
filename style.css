@@ -188,6 +188,10 @@
     display: none;
 }
 
+#playButton.hidden {
+    display: none;
+}
+
 .trump-action {
     width: 33px;
     height: 33px;

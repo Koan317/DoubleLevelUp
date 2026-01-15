@@ -83,6 +83,8 @@ window.Game = (function () {
     });
     Render.renderKitty(state);
     Render.renderStatus(state);
+    Render.setPlayButtonVisible(state.trumpReveal.player === 0);
+    Render.setPlayButtonLabel("扣牌");
     Render.animateKittyTransfer(state.trumpReveal.player, () => {
       grantKittyToBanker();
       if (state.trumpReveal.player === 0) {
@@ -93,8 +95,10 @@ window.Game = (function () {
         return;
       }
       autoDiscardKittyForAI(state.trumpReveal.player);
-      startTwistPhase();
-    });
+      Render.animateKittyReturn(() => {
+        startTwistPhase();
+      });
+    }, { keepAtTarget: true });
   }
 
   function canHumanTwist() {
@@ -104,6 +108,7 @@ window.Game = (function () {
 
   function startTwistPhase() {
     state.phase = "twist";
+    Render.setPlayButtonVisible(false);
     if (canHumanTwist()) {
       state.revealWindowOpen = true;
       startRevealCountdown(() => {
@@ -132,6 +137,8 @@ window.Game = (function () {
   function startPlayFromBanker() {
     state.phase = "play";
     state.turn = state.trumpReveal?.player ?? 0;
+    Render.setPlayButtonLabel("出牌");
+    Render.setPlayButtonVisible(state.turn === 0);
     Render.setPlayButtonEnabled(state.turn === 0);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: false,
@@ -183,6 +190,7 @@ window.Game = (function () {
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
       animateDeal: false
     });
+    Render.setPlayButtonVisible(false);
     Render.setPlayButtonEnabled(false);
     clearRevealCountdown();
     Render.renderKitty(state);
@@ -567,7 +575,9 @@ window.Game = (function () {
     Render.renderKitty(state);
     Render.renderRuleMessage(null);
     Render.setPlayButtonEnabled(false);
-    startTwistPhase();
+    Render.animateKittyReturn(() => {
+      startTwistPhase();
+    });
   }
 
   function isBigJoker(card) {
@@ -835,6 +845,11 @@ window.Game = (function () {
     }
     if (winner !== 0) {
       setTimeout(() => aiTurn(winner), 300);
+    } else {
+      console.log("下一轮首家：玩家", {
+        phase: state.phase,
+        playerHand: state.players[0].length
+      });
     }
   }
 

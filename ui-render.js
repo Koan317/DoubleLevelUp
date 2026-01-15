@@ -234,7 +234,7 @@ window.Render = (function () {
     return key === "♠" || key === "♥" || key === "♣" || key === "♦";
   }
 
-  function animateKittyTransfer(bankerIndex, onComplete) {
+  function animateKittyTransfer(bankerIndex, onComplete, options = {}) {
     const kitty = document.getElementById("kitty");
     if (!kitty) {
       if (onComplete) onComplete();
@@ -254,9 +254,11 @@ window.Render = (function () {
     kitty.style.setProperty("--kitty-target-y", `${deltaY}px`);
     const cards = kitty.querySelectorAll(".kitty-card");
     cards.forEach(card => card.classList.add("kitty-move"));
-    setTimeout(() => {
-      cards.forEach(card => card.classList.remove("kitty-move"));
-    }, 700);
+    if (!options.keepAtTarget) {
+      setTimeout(() => {
+        cards.forEach(card => card.classList.remove("kitty-move"));
+      }, 700);
+    }
     setTimeout(() => {
       if (onComplete) onComplete();
     }, 1400);
@@ -295,6 +297,19 @@ window.Render = (function () {
     badge.style.transform = "translate(-50%, -50%) rotate(-6deg)";
   }
 
+  function animateKittyReturn(onComplete) {
+    const kitty = document.getElementById("kitty");
+    if (!kitty) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const cards = kitty.querySelectorAll(".kitty-card");
+    cards.forEach(card => card.classList.remove("kitty-move"));
+    setTimeout(() => {
+      if (onComplete) onComplete();
+    }, 700);
+  }
+
   function renderCountdown(countdownValue) {
     const el = document.getElementById("reveal-countdown");
     if (!el) return;
@@ -319,6 +334,18 @@ window.Render = (function () {
     button.disabled = !enabled;
   }
 
+  function setPlayButtonVisible(visible) {
+    const button = document.getElementById("playButton");
+    if (!button) return;
+    button.classList.toggle("hidden", !visible);
+  }
+
+  function setPlayButtonLabel(label) {
+    const button = document.getElementById("playButton");
+    if (!button) return;
+    button.textContent = label;
+  }
+
   return {
     renderHand,
     renderTrick,
@@ -328,8 +355,11 @@ window.Render = (function () {
     renderCountdown,
     renderKitty,
     animateKittyTransfer,
+    animateKittyReturn,
     renderRuleMessage,
-    setPlayButtonEnabled
+    setPlayButtonEnabled,
+    setPlayButtonVisible,
+    setPlayButtonLabel
   };
 
 })();
