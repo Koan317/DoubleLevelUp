@@ -88,6 +88,10 @@
       type = "throw";
     }
 
+    if (isMixedSuit && cards.length > 1) {
+      type = "throw";
+    }
+
     const rankPowers = getRankPowers(groups);
     const mainRank = getMainRank(ranks, rankPowers);
 
