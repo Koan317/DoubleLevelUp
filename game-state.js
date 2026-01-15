@@ -390,6 +390,7 @@ window.Game = (function () {
   function onHumanReveal(key) {
     if (state.phase !== "reveal" && state.phase !== "twist" && state.phase !== "dealing") return;
     if (!state.revealWindowOpen) return;
+    const wasTwistPhase = state.phase === "twist";
     let candidate = null;
     if (isFirstRound() && !state.trumpReveal && isSuitKey(key)) {
       candidate = getFirstRoundRevealForSuit(key);
@@ -413,6 +414,10 @@ window.Game = (function () {
     state.phase = shouldLockDealing ? "dealing" : "twist";
     if (!shouldLockDealing) {
       autoRevealFromAI();
+    }
+    if (wasTwistPhase) {
+      beginKittyPhase();
+      return;
     }
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
