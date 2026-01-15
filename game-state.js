@@ -837,7 +837,61 @@ window.Game = (function () {
       state,
       playerIndex
     );
-    tryPlay(playerIndex, cards, { source: "AI" });
+    const ok = tryPlay(playerIndex, cards, { source: "AI" });
+    if (!ok) {
+      const fallback = findFallbackPlay(state.players[playerIndex], lead, state);
+      if (!fallback.length) {
+        console.warn("AI has no cards to play", { playerIndex });
+        return;
+      }
+      const fallbackOk = tryPlay(playerIndex, fallback, { source: "AI" });
+      if (!fallbackOk) {
+        console.warn("AI fallback still invalid, forcing play", {
+          playerIndex,
+          lead,
+          fallback
+        });
+        state.invalidActionReason = null;
+        Render.renderRuleMessage(state.invalidActionReason);
+        commitPlay(playerIndex, fallback);
+      }
+    }
+  }
+
+  function findFallbackPlay(hand, leadPattern, trumpInfo) {
+    if (!hand.length) return [];
+    if (!leadPattern) {
+      return [hand[0]];
+    }
+    const needCount = leadPattern.length;
+    const cards = hand.slice();
+    let result = null;
+
+    function search(start, combo) {
+      if (result) return;
+      if (combo.length === needCount) {
+        const check = Follow.validateFollowPlay({
+          leadPattern,
+          followCards: combo,
+          handCards: hand,
+          trumpInfo
+        });
+        if (check.ok) {
+          result = combo.slice();
+        }
+        return;
+      }
+      for (let i = start; i <= cards.length - (needCount - combo.length); i++) {
+        combo.push(cards[i]);
+        search(i + 1, combo);
+        combo.pop();
+        if (result) return;
+      }
+    }
+
+    search(0, []);
+    if (result) return result;
+    return cards.slice(0, needCount);
   }
 
   function finishTrick() {
@@ -855,6 +909,8 @@ window.Game = (function () {
 
     state.turn = winner;
     state.currentTrick = [];
+    state.phase = "play";
+    state.invalidActionReason = null;
 
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
@@ -863,6 +919,7 @@ window.Game = (function () {
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);
+    Render.renderRuleMessage(state.invalidActionReason);
     Render.setPlayButtonEnabled(winner === 0);
     Render.setPlayButtonVisible(true);
     if (isLastTrick) {
