@@ -23,6 +23,8 @@ window.Game = (function () {
     phase: "play",
     round: 0,
     invalidActionReason: null,
+    lastRoundSummary: null,
+    nextBankerIndex: null,
   };
 
   let revealCountdownTimer = null;
@@ -148,11 +150,14 @@ window.Game = (function () {
     const deck = Cards.createDeck();
     Cards.shuffle(deck);
 
+    if (isFirstRound) {
+      state.bankerLevel = state.level;
+      state.scoreLevel = state.level;
+    }
+
     state.players = [[], [], [], []];
     const dealCards = deck.slice(0, 100);
     state.kitty = deck.slice(100); // 8 张底牌
-    state.bankerLevel = state.level;
-    state.scoreLevel = state.level;
     state.trumpSuit = null;
     state.trumpReveal = null;
     state.trumpRevealCards = [];
@@ -164,6 +169,15 @@ window.Game = (function () {
     state.bankerTeam = [];
     state.scoreTeam = [];
     state.phase = isFirstRound ? "dealing" : "reveal";
+    state.score = 0;
+
+    if (!isFirstRound && state.nextBankerIndex !== null && state.nextBankerIndex !== undefined) {
+      const bankerIndex = state.nextBankerIndex;
+      state.trumpReveal = { player: bankerIndex, reveal: null };
+      state.bankerTeam = bankerIndex % 2 === 0 ? [0, 2] : [1, 3];
+      state.scoreTeam = bankerIndex % 2 === 0 ? [1, 3] : [0, 2];
+      state.revealWindowOpen = true;
+    }
 
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards, {
@@ -568,6 +582,41 @@ window.Game = (function () {
     return state.round === 1;
   }
 
+  const LEVEL_ORDER = ["2","3","4","5","6","7","8","9","10","J","Q","K","A","王"];
+
+  function advanceLevel(level, steps) {
+    const index = LEVEL_ORDER.indexOf(level);
+    if (index < 0) return level;
+    return LEVEL_ORDER[(index + steps) % LEVEL_ORDER.length];
+  }
+
+  function getTeamKeyByPlayer(playerIndex) {
+    return playerIndex % 2 === 0 ? "SN" : "WE";
+  }
+
+  function getTeamLevel(teamKey) {
+    return teamKey === "SN" ? state.bankerLevel : state.scoreLevel;
+  }
+
+  function setTeamLevel(teamKey, level) {
+    if (teamKey === "SN") {
+      state.bankerLevel = level;
+      return;
+    }
+    state.scoreLevel = level;
+  }
+
+  function addTeamLevel(teamKey, steps) {
+    if (steps <= 0) return;
+    const nextLevel = advanceLevel(getTeamLevel(teamKey), steps);
+    setTeamLevel(teamKey, nextLevel);
+  }
+
+  function summarizeRound(message) {
+    state.lastRoundSummary = message;
+    Render.renderRuleMessage(message);
+  }
+
   function isRedSuit(suit) {
     return suit === "♥" || suit === "♦";
   }
@@ -761,10 +810,13 @@ window.Game = (function () {
       state.currentTrick,
       state
     );
+    const winningPlay = state.currentTrick.find(play => play.player === winner);
     const trickCards = state.currentTrick.flatMap(play => play.cards);
     if (state.scoreTeam.includes(winner)) {
       state.score += Score.totalTrickScore(trickCards);
     }
+
+    const isLastTrick = state.players.every(hand => hand.length === 0);
 
     state.turn = winner;
     state.currentTrick = [];
@@ -777,12 +829,85 @@ window.Game = (function () {
     });
     Render.renderStatus(state);
     Render.setPlayButtonEnabled(winner === 0);
-    if (state.players.every(hand => hand.length === 0)) {
+    if (isLastTrick) {
+      settleRound({ winner, winningPattern: winningPlay?.pattern });
       return;
     }
     if (winner !== 0) {
       setTimeout(() => aiTurn(winner), 300);
     }
+  }
+
+  function settleRound({ winner, winningPattern }) {
+    const lastTrickWinnerIsScorer = state.scoreTeam.includes(winner);
+    const bottomScore = Bottom.settleBottom({
+      bottomCards: state.kitty,
+      lastTrickWinnerIsScorer,
+      winningPattern: winningPattern || { type: "single", length: 1, cards: [] },
+      level: state.level
+    });
+    if (bottomScore) {
+      state.score += bottomScore;
+    }
+
+    const bankerIndex = state.trumpReveal?.player ?? 0;
+    const bankerTeamKey = getTeamKeyByPlayer(bankerIndex);
+    const scorerTeamKey = bankerTeamKey === "SN" ? "WE" : "SN";
+    const roundScore = state.score;
+
+    let bankerLevelUp = 0;
+    let scorerLevelUp = 0;
+    let nextBankerIndex = bankerIndex;
+    let roundOutcome = "轮换庄家";
+
+    if (roundScore === 0) {
+      bankerLevelUp = 4;
+      nextBankerIndex = (bankerIndex + 2) % 4;
+      roundOutcome = "庄家连升4级";
+    } else if (roundScore < 40) {
+      bankerLevelUp = 2;
+      nextBankerIndex = (bankerIndex + 2) % 4;
+      roundOutcome = "庄家连升2级";
+    } else if (roundScore < 80) {
+      bankerLevelUp = 1;
+      nextBankerIndex = (bankerIndex + 2) % 4;
+      roundOutcome = "庄家升1级";
+    } else if (roundScore < 120) {
+      nextBankerIndex = (bankerIndex + 1) % 4;
+      roundOutcome = "轮换庄家";
+    } else {
+      scorerLevelUp = Math.floor((roundScore - 120) / 40) + 1;
+      nextBankerIndex = (bankerIndex + 1) % 4;
+      roundOutcome = `闲家升${scorerLevelUp}级`;
+    }
+
+    addTeamLevel(bankerTeamKey, bankerLevelUp);
+    addTeamLevel(scorerTeamKey, scorerLevelUp);
+
+    state.level = getTeamLevel(getTeamKeyByPlayer(nextBankerIndex));
+    state.nextBankerIndex = nextBankerIndex;
+    state.score = 0;
+    state.currentTrick = [];
+    state.phase = "settle";
+    Render.setPlayButtonEnabled(false);
+    Render.renderStatus(state);
+
+    const summaryParts = [
+      `抠底加分：${bottomScore}`,
+      `本局得分：${roundScore}`,
+      roundOutcome
+    ];
+    summarizeRound(summaryParts.join("，"));
+
+    state.trumpReveal = { player: nextBankerIndex, reveal: null };
+    state.trumpSuit = null;
+    state.trumpRevealCards = [];
+
+    setTimeout(() => {
+      state.lastRoundSummary = null;
+      Render.renderRuleMessage(null);
+      startGame();
+    }, 2000);
   }
 
   return {
