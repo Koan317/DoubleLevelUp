@@ -25,6 +25,7 @@ window.Game = (function () {
     invalidActionReason: null,
     lastRoundSummary: null,
     nextBankerIndex: null,
+    kittyRevealCard: null,
   };
 
   let revealCountdownTimer = null;
@@ -172,6 +173,7 @@ window.Game = (function () {
     state.revealCountdown = null;
     state.revealWindowOpen = isFirstRound;
     state.kittyVisible = false;
+    state.kittyRevealCard = null;
     state.invalidActionReason = null;
     state.bankerTeam = [];
     state.scoreTeam = [];
@@ -207,7 +209,9 @@ window.Game = (function () {
         Render.renderKitty(state);
         if (!state.trumpSuit) {
           if (isFirstRound) {
-            resolveKittyReveal();
+            if (resolveKittyReveal()) {
+              return;
+            }
           } else {
             autoRevealFromAI();
           }
@@ -659,17 +663,34 @@ window.Game = (function () {
   }
 
   function resolveKittyReveal() {
-    if (state.trumpSuit) return;
+    if (state.trumpSuit) return false;
     for (const card of state.kitty) {
       const ownerIndex = state.players.findIndex(hand =>
         hand.some(h => h.suit === card.suit && h.rank === card.rank)
       );
       if (ownerIndex >= 0) {
-        const trumpSuit = card.suit === "JOKER" ? null : card.suit;
-        applyReveal({ trumpSuit, type: "KITTY_MATCH", power: 0 }, ownerIndex, []);
-        return;
+        state.kittyRevealCard = card;
+        state.revealWindowOpen = false;
+        Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+          revealWindowOpen: false,
+          allowPendingReveal: false
+        });
+        Render.renderKitty(state);
+        Render.renderStatus(state);
+        Render.renderReveal(state);
+        setTimeout(() => {
+          const trumpSuit = card.suit === "JOKER" ? null : card.suit;
+          applyReveal({ trumpSuit, type: "KITTY_MATCH", power: 0 }, ownerIndex, []);
+          state.kittyRevealCard = null;
+          Render.renderKitty(state);
+          Render.renderStatus(state);
+          Render.renderReveal(state);
+          beginKittyPhase();
+        }, 1000);
+        return true;
       }
     }
+    return false;
   }
 
   function getFirstRoundRevealForSuit(suit) {
@@ -845,7 +866,7 @@ window.Game = (function () {
       return;
     }
     if (winner !== 0) {
-      setTimeout(() => aiTurn(winner), 300);
+      setTimeout(() => aiTurn(winner), 1000);
     } else {
       console.log("下一轮首家：玩家", {
         phase: state.phase,

@@ -115,6 +115,11 @@ window.Render = (function () {
       card.style.top = `${i * 2}px`;
       el.appendChild(card);
     }
+    if (state.kittyRevealCard) {
+      const reveal = createCardElement(state.kittyRevealCard);
+      reveal.classList.add("kitty-reveal");
+      el.appendChild(reveal);
+    }
   }
 
   function renderTrumpActions(actions, phase, onReveal, options = {}) {
@@ -176,10 +181,9 @@ window.Render = (function () {
   }
 
   function suitOrder(card, state) {
-    if (Rules.isTrump(card, state)) return 0;
-    const order = ["♠", "♥", "♣", "♦"];
+    const order = ["♠", "♥", "♣", "♦", "JOKER"];
     const index = order.indexOf(card.suit);
-    return index === -1 ? order.length + 1 : index + 1;
+    return index === -1 ? order.length + 1 : index;
   }
 
   function createCardElement(card) {

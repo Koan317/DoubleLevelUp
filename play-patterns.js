@@ -64,11 +64,12 @@
     const suitType = mapped.every(c => c.isTrump) ? "trump" : "side";
     const suit = suitType === "side" ? mapped[0].suit : null;
 
-    // 分组（按 normRank）
+    // 分组（按花色+点数）
     const groups = {};
     for (const c of mapped) {
-      groups[c.normRank] ??= [];
-      groups[c.normRank].push(c);
+      const key = buildGroupKey(c);
+      groups[key] ??= [];
+      groups[key].push(c);
     }
 
     const ranks = Object.keys(groups);
@@ -85,7 +86,7 @@
       type = "throw";
     }
 
-    const rankPowers = getRankPowers(groups, trumpInfo);
+    const rankPowers = getRankPowers(groups);
     const mainRank = getMainRank(ranks, rankPowers);
 
     return {
@@ -111,6 +112,15 @@
     return c.rank;
   }
 
+  function buildGroupKey(card) {
+    return `${card.suit}-${card.normRank}`;
+  }
+
+  function parseGroupKey(key) {
+    const [suit, rank] = key.split("-");
+    return { suit, rank };
+  }
+
   function getRankPowers(groups) {
     const powers = {};
     Object.keys(groups).forEach(rank => {
@@ -125,19 +135,25 @@
       .sort((a, b) => {
         const powerDiff = (rankPowers[b] ?? 0) - (rankPowers[a] ?? 0);
         if (powerDiff !== 0) return powerDiff;
-        return BASE_ORDER.indexOf(b) - BASE_ORDER.indexOf(a);
+        const aRank = parseGroupKey(a).rank;
+        const bRank = parseGroupKey(b).rank;
+        return BASE_ORDER.indexOf(bRank) - BASE_ORDER.indexOf(aRank);
       })[0];
   }
 
   function isTractor(groups, trumpInfo) {
     const pairRanks = Object.keys(groups)
-      .filter(r => groups[r].length === 2);
+      .filter(r => groups[r].length === 2)
+      .map(r => parseGroupKey(r));
 
     if (pairRanks.length < 2) return false;
 
+    const suits = new Set(pairRanks.map(r => r.suit));
+    if (suits.size !== 1) return false;
+
     const order = getSequenceOrder(trumpInfo);
     const idxs = pairRanks
-      .map(r => order.indexOf(r))
+      .map(r => order.indexOf(r.rank))
       .filter(i => i >= 0)
       .sort((a,b)=>a-b);
 
