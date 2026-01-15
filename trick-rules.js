@@ -77,6 +77,8 @@
 
     // 0️⃣ 贴牌（未按首家牌型跟）一律算小
     if (leadPattern.type !== "throw") {
+      if (!pa.isMixedSuit && pb.isMixedSuit) return true;
+      if (pa.isMixedSuit && !pb.isMixedSuit) return false;
       const aMatchesLead = pa.type === leadPattern.type;
       const bMatchesLead = pb.type === leadPattern.type;
       if (aMatchesLead && !bMatchesLead) return true;
