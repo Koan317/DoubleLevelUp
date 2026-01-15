@@ -413,7 +413,9 @@ window.Game = (function () {
     if (!ok) return;
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.setPlayButtonEnabled(false);
+    if (state.currentTrick.length > 0) {
+      Render.setPlayButtonEnabled(false);
+    }
   }
 
   function onHumanReveal(key) {
