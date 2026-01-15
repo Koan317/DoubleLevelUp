@@ -115,6 +115,11 @@ window.Render = (function () {
       card.style.top = `${i * 2}px`;
       el.appendChild(card);
     }
+    if (state.kittyRevealCard) {
+      const reveal = createCardElement(state.kittyRevealCard);
+      reveal.classList.add("kitty-reveal");
+      el.appendChild(reveal);
+    }
   }
 
   function renderTrumpActions(actions, phase, onReveal, options = {}) {
@@ -234,7 +239,7 @@ window.Render = (function () {
     return key === "♠" || key === "♥" || key === "♣" || key === "♦";
   }
 
-  function animateKittyTransfer(bankerIndex, onComplete) {
+  function animateKittyTransfer(bankerIndex, onComplete, options = {}) {
     const kitty = document.getElementById("kitty");
     if (!kitty) {
       if (onComplete) onComplete();
@@ -254,9 +259,11 @@ window.Render = (function () {
     kitty.style.setProperty("--kitty-target-y", `${deltaY}px`);
     const cards = kitty.querySelectorAll(".kitty-card");
     cards.forEach(card => card.classList.add("kitty-move"));
-    setTimeout(() => {
-      cards.forEach(card => card.classList.remove("kitty-move"));
-    }, 700);
+    if (!options.keepAtTarget) {
+      setTimeout(() => {
+        cards.forEach(card => card.classList.remove("kitty-move"));
+      }, 700);
+    }
     setTimeout(() => {
       if (onComplete) onComplete();
     }, 1400);
@@ -265,20 +272,47 @@ window.Render = (function () {
   function renderBankerBadge(state) {
     const badge = document.getElementById("banker-badge");
     if (!badge) return;
+    const table = document.getElementById("table");
     const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
-    if (!area) {
+    if (!area || !table) {
       badge.className = "banker-badge hidden";
       badge.textContent = "";
       return;
     }
-    const sideMap = {
-      south: "kitty-south",
-      west: "kitty-west",
-      north: "kitty-north",
-      east: "kitty-east"
-    };
+
+    const tableRect = table.getBoundingClientRect();
+    const offset = 156;
+    let top = tableRect.height / 2;
+    let left = tableRect.width / 2;
+
+    if (area === "north") {
+      top = tableRect.height / 2 - offset;
+    } else if (area === "south") {
+      top = tableRect.height / 2 + offset;
+    } else if (area === "west") {
+      left = tableRect.width / 2 - offset;
+    } else if (area === "east") {
+      left = tableRect.width / 2 + offset;
+    }
+
     badge.textContent = "庄";
-    badge.className = `banker-badge ${sideMap[area] || "kitty-south"}`;
+    badge.className = "banker-badge";
+    badge.style.top = `${top}px`;
+    badge.style.left = `${left}px`;
+    badge.style.transform = "translate(-50%, -50%) rotate(-6deg)";
+  }
+
+  function animateKittyReturn(onComplete) {
+    const kitty = document.getElementById("kitty");
+    if (!kitty) {
+      if (onComplete) onComplete();
+      return;
+    }
+    const cards = kitty.querySelectorAll(".kitty-card");
+    cards.forEach(card => card.classList.remove("kitty-move"));
+    setTimeout(() => {
+      if (onComplete) onComplete();
+    }, 700);
   }
 
   function renderCountdown(countdownValue) {
@@ -305,6 +339,18 @@ window.Render = (function () {
     button.disabled = !enabled;
   }
 
+  function setPlayButtonVisible(visible) {
+    const button = document.getElementById("playButton");
+    if (!button) return;
+    button.classList.toggle("hidden", !visible);
+  }
+
+  function setPlayButtonLabel(label) {
+    const button = document.getElementById("playButton");
+    if (!button) return;
+    button.textContent = label;
+  }
+
   return {
     renderHand,
     renderTrick,
@@ -314,8 +360,11 @@ window.Render = (function () {
     renderCountdown,
     renderKitty,
     animateKittyTransfer,
+    animateKittyReturn,
     renderRuleMessage,
-    setPlayButtonEnabled
+    setPlayButtonEnabled,
+    setPlayButtonVisible,
+    setPlayButtonLabel
   };
 
 })();

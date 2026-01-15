@@ -188,6 +188,10 @@
     display: none;
 }
 
+#playButton.hidden {
+    display: none;
+}
+
 .trump-action {
     width: 33px;
     height: 33px;
@@ -315,6 +319,14 @@
 #kitty .kitty-card.kitty-move {
     transform: translate(var(--kitty-target-x, 0px), var(--kitty-target-y, 0px)) scale(0.9);
     opacity: 0.3;
+}
+
+#kitty .kitty-reveal {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    z-index: 2;
 }
 
 .card .corner {
