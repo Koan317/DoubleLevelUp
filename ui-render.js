@@ -266,28 +266,26 @@ window.Render = (function () {
     const badge = document.getElementById("banker-badge");
     if (!badge) return;
     const table = document.getElementById("table");
-    const kitty = document.getElementById("kitty");
     const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
-    if (!area || !table || !kitty) {
+    if (!area || !table) {
       badge.className = "banker-badge hidden";
       badge.textContent = "";
       return;
     }
 
     const tableRect = table.getBoundingClientRect();
-    const kittyRect = kitty.getBoundingClientRect();
-    const offset = 16;
-    let top = kittyRect.top - tableRect.top + kittyRect.height / 2;
-    let left = kittyRect.left - tableRect.left + kittyRect.width / 2;
+    const offset = 56;
+    let top = tableRect.height / 2;
+    let left = tableRect.width / 2;
 
     if (area === "north") {
-      top = kittyRect.top - tableRect.top - offset;
+      top = tableRect.height / 2 - offset;
     } else if (area === "south") {
-      top = kittyRect.top - tableRect.top + kittyRect.height + offset;
+      top = tableRect.height / 2 + offset;
     } else if (area === "west") {
-      left = kittyRect.left - tableRect.left - offset;
+      left = tableRect.width / 2 - offset;
     } else if (area === "east") {
-      left = kittyRect.left - tableRect.left + kittyRect.width + offset;
+      left = tableRect.width / 2 + offset;
     }
 
     badge.textContent = "庄";
