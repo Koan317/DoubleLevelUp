@@ -75,6 +75,14 @@
     const pa = a.pattern;
     const pb = b.pattern;
 
+    // 0️⃣ 贴牌（未按首家牌型跟）一律算小
+    if (leadPattern.type !== "throw") {
+      const aMatchesLead = pa.type === leadPattern.type;
+      const bMatchesLead = pb.type === leadPattern.type;
+      if (aMatchesLead && !bMatchesLead) return true;
+      if (!aMatchesLead && bMatchesLead) return false;
+    }
+
     // 1️⃣ 主压副
     if (pa.suitType === "trump" && pb.suitType !== "trump") return true;
     if (pa.suitType !== "trump" && pb.suitType === "trump") return false;
