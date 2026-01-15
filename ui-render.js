@@ -265,20 +265,36 @@ window.Render = (function () {
   function renderBankerBadge(state) {
     const badge = document.getElementById("banker-badge");
     if (!badge) return;
+    const table = document.getElementById("table");
+    const kitty = document.getElementById("kitty");
     const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
-    if (!area) {
+    if (!area || !table || !kitty) {
       badge.className = "banker-badge hidden";
       badge.textContent = "";
       return;
     }
-    const sideMap = {
-      south: "kitty-south",
-      west: "kitty-west",
-      north: "kitty-north",
-      east: "kitty-east"
-    };
+
+    const tableRect = table.getBoundingClientRect();
+    const kittyRect = kitty.getBoundingClientRect();
+    const offset = 16;
+    let top = kittyRect.top - tableRect.top + kittyRect.height / 2;
+    let left = kittyRect.left - tableRect.left + kittyRect.width / 2;
+
+    if (area === "north") {
+      top = kittyRect.top - tableRect.top - offset;
+    } else if (area === "south") {
+      top = kittyRect.top - tableRect.top + kittyRect.height + offset;
+    } else if (area === "west") {
+      left = kittyRect.left - tableRect.left - offset;
+    } else if (area === "east") {
+      left = kittyRect.left - tableRect.left + kittyRect.width + offset;
+    }
+
     badge.textContent = "庄";
-    badge.className = `banker-badge ${sideMap[area] || "kitty-south"}`;
+    badge.className = "banker-badge";
+    badge.style.top = `${top}px`;
+    badge.style.left = `${left}px`;
+    badge.style.transform = "translate(-50%, -50%) rotate(-6deg)";
   }
 
   function renderCountdown(countdownValue) {
