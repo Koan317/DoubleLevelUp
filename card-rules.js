@@ -23,7 +23,10 @@
 
     // 主牌
     if (isTrump(card, state)) {
-      if (card.rank === state.level) return 80;
+      if (card.rank === state.level) {
+        if (card.suit === state.trumpSuit) return 85;
+        return 80;
+      }
       return 60 + rankValue(card.rank);
     }
 
