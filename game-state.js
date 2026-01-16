@@ -29,16 +29,47 @@ window.Game = (function () {
     kittyOwner: null,
     lastTwistPlayer: null,
     lastTwistReveal: null,
+    kittyRevealed: false,
+    kittyMultiplier: null,
+    awaitingNextRound: false,
+    trickHistory: [[], [], [], []],
+    trickIndex: 0,
+    playedCards: [],
+    kittyRevealInProgress: false,
   };
 
   let revealCountdownTimer = null;
   const playerLabels = ["南家", "西家", "北家", "东家"];
+  const STORAGE_KEY = "doublelevelup-levels";
 
   function formatCardForLog(card) {
     if (card.suit === "JOKER") {
       return card.rank === "BJ" ? "大王" : "小王";
     }
     return `${card.rank}${card.suit}`;
+  }
+
+  function loadSavedLevels() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.snLevel || !parsed.weLevel) return null;
+      return parsed;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function saveLevels() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        snLevel: state.bankerLevel,
+        weLevel: state.scoreLevel
+      }));
+    } catch (error) {
+      // ignore storage errors
+    }
   }
 
   function clearRevealCountdown() {
@@ -96,6 +127,7 @@ window.Game = (function () {
     state.kittyOwner = recipientIndex;
     Render.renderKitty(state);
     Render.renderStatus(state);
+    Render.renderReveal(state);
     Render.setPlayButtonVisible(recipientIndex === 0);
     Render.setPlayButtonLabel("扣牌");
     Render.animateKittyTransfer(recipientIndex, () => {
@@ -167,10 +199,21 @@ window.Game = (function () {
   function startGame() {
     const isFirstRound = state.round === 0;
     state.round += 1;
+    if (isFirstRound) {
+      const savedLevels = loadSavedLevels();
+      if (savedLevels) {
+        state.bankerLevel = savedLevels.snLevel;
+        state.scoreLevel = savedLevels.weLevel;
+        state.level = savedLevels.snLevel;
+      } else if (!state.bankerLevel || !state.scoreLevel) {
+        state.bankerLevel = state.level;
+        state.scoreLevel = state.level;
+      }
+    }
     const deck = Cards.createDeck();
     Cards.shuffle(deck);
 
-    if (isFirstRound) {
+    if (isFirstRound && (!state.bankerLevel || !state.scoreLevel)) {
       state.bankerLevel = state.level;
       state.scoreLevel = state.level;
     }
@@ -187,11 +230,18 @@ window.Game = (function () {
     state.kittyVisible = false;
     state.kittyRevealCard = null;
     state.kittyOwner = null;
+    state.kittyRevealed = false;
+    state.kittyMultiplier = null;
     state.invalidActionReason = null;
     state.bankerTeam = [];
     state.scoreTeam = [];
     state.lastTwistPlayer = null;
     state.lastTwistReveal = null;
+    state.awaitingNextRound = false;
+    state.trickHistory = [[], [], [], []];
+    state.trickIndex = 0;
+    state.playedCards = [];
+    state.kittyRevealInProgress = false;
     state.phase = isFirstRound ? "dealing" : "reveal";
     state.score = 0;
 
@@ -209,26 +259,28 @@ window.Game = (function () {
     });
     Render.setPlayButtonVisible(false);
     Render.setPlayButtonEnabled(false);
+    Render.setNextRoundButtonVisible(false);
+    Render.bindPileModalHandlers();
+    Render.hidePileModal();
     clearRevealCountdown();
     Render.renderKitty(state);
+    Render.renderKittyMultiplier(state.kittyMultiplier, false);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);
     Render.renderReveal(state);
+    Render.renderTrickPiles(state, onPileClick);
 
     const finishDeal = () => {
       const finalizeRevealWindow = () => {
         state.kittyVisible = true;
         Render.renderKitty(state);
         if (!state.trumpSuit) {
-          if (isFirstRound) {
-            if (resolveKittyReveal()) {
-              return;
-            }
-          } else {
-            autoRevealFromAI();
+          autoRevealFromAI();
+          if (!state.trumpSuit && resolveKittyReveal()) {
+            return;
           }
         }
         state.phase = state.trumpSuit ? "twist" : "reveal";
@@ -405,6 +457,7 @@ window.Game = (function () {
 
   function onHumanSelect(card) {
     if (state.phase === "dealing") return;
+    if (state.awaitingNextRound) return;
     const index = state.selectedCards.indexOf(card);
     if (index >= 0) {
       state.selectedCards.splice(index, 1);
@@ -414,7 +467,12 @@ window.Game = (function () {
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
   }
 
+  function onPileClick(playerIndex) {
+    Render.showPileModal(playerIndex, state);
+  }
+
   function onHumanPlaySelected() {
+    if (state.awaitingNextRound) return;
     if (state.phase === "kitty") {
       handleHumanKittyDiscard();
       return;
@@ -712,34 +770,46 @@ window.Game = (function () {
   }
 
   function resolveKittyReveal() {
-    if (state.trumpSuit) return false;
-    for (const card of state.kitty) {
+    if (state.trumpSuit || state.kittyRevealInProgress) return false;
+    state.kittyRevealInProgress = true;
+    state.revealWindowOpen = false;
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealWindowOpen: false,
+      allowPendingReveal: false
+    });
+    let revealIndex = 0;
+    const revealNext = () => {
+      if (revealIndex >= state.kitty.length) {
+        state.kittyRevealInProgress = false;
+        return;
+      }
+      const card = state.kitty[revealIndex];
+      state.kittyRevealCard = card;
+      Render.renderKitty(state);
+      Render.renderStatus(state);
+      Render.renderReveal(state);
       const ownerIndex = state.players.findIndex(hand =>
         hand.some(h => h.suit === card.suit && h.rank === card.rank)
       );
       if (ownerIndex >= 0) {
-        state.kittyRevealCard = card;
-        state.revealWindowOpen = false;
-        Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-          revealWindowOpen: false,
-          allowPendingReveal: false
-        });
-        Render.renderKitty(state);
-        Render.renderStatus(state);
-        Render.renderReveal(state);
+        Render.renderKittyOwnerProof(ownerIndex, card);
         setTimeout(() => {
           const trumpSuit = card.suit === "JOKER" ? null : card.suit;
           applyReveal({ trumpSuit, type: "KITTY_MATCH", power: 0 }, ownerIndex, []);
           state.kittyRevealCard = null;
+          state.kittyRevealInProgress = false;
           Render.renderKitty(state);
           Render.renderStatus(state);
           Render.renderReveal(state);
-          beginKittyPhase();
-        }, 1000);
-        return true;
+          beginKittyPhase(ownerIndex);
+        }, 1200);
+        return;
       }
-    }
-    return false;
+      revealIndex += 1;
+      setTimeout(revealNext, 900);
+    };
+    revealNext();
+    return true;
   }
 
   function getFirstRoundRevealForSuit(suit) {
@@ -885,7 +955,7 @@ window.Game = (function () {
     state.players[playerIndex] =
       state.players[playerIndex].filter(c => !cards.includes(c));
 
-    Render.renderTrick(state.currentTrick, state);
+    Render.renderTrick(state.currentTrick, state, { animatePlayer: playerIndex });
 
     if (state.currentTrick.length === 4) {
       finishTrick();
@@ -938,6 +1008,18 @@ window.Game = (function () {
     if (state.scoreTeam.includes(winner)) {
       state.score += Score.totalTrickScore(trickCards);
     }
+    state.playedCards = state.playedCards.concat(trickCards);
+
+    const nextTrickIndex = state.trickIndex + 1;
+    state.currentTrick.forEach(play => {
+      state.trickHistory[play.player].push({
+        trickIndex: nextTrickIndex,
+        cards: play.cards.slice(),
+        isMax: play.player === winner
+      });
+    });
+    state.trickIndex = nextTrickIndex;
+    Render.renderTrickPiles(state, onPileClick);
 
     const isLastTrick = state.players.every(hand => hand.length === 0);
 
@@ -946,6 +1028,7 @@ window.Game = (function () {
 
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+    Render.renderTrick(state.currentTrick, state);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
@@ -993,27 +1076,23 @@ window.Game = (function () {
 
     let bankerLevelUp = 0;
     let scorerLevelUp = 0;
-    let nextBankerIndex = bankerIndex;
-    let roundOutcome = "轮换庄家";
+    const bankerWon = roundScore < 80;
+    let nextBankerIndex = bankerWon ? (bankerIndex + 2) % 4 : (bankerIndex + 1) % 4;
+    let roundOutcome = bankerWon ? "庄家队胜，转由队友坐庄" : "庄家队负，右手玩家坐庄";
 
     if (roundScore === 0) {
       bankerLevelUp = 4;
-      nextBankerIndex = (bankerIndex + 2) % 4;
       roundOutcome = "庄家连升4级";
     } else if (roundScore < 40) {
       bankerLevelUp = 2;
-      nextBankerIndex = (bankerIndex + 2) % 4;
       roundOutcome = "庄家连升2级";
     } else if (roundScore < 80) {
       bankerLevelUp = 1;
-      nextBankerIndex = (bankerIndex + 2) % 4;
       roundOutcome = "庄家升1级";
     } else if (roundScore < 120) {
-      nextBankerIndex = (bankerIndex + 1) % 4;
       roundOutcome = "轮换庄家";
     } else {
       scorerLevelUp = Math.floor((roundScore - 120) / 40) + 1;
-      nextBankerIndex = (bankerIndex + 1) % 4;
       roundOutcome = `闲家升${scorerLevelUp}级`;
     }
 
@@ -1025,8 +1104,14 @@ window.Game = (function () {
     state.score = 0;
     state.currentTrick = [];
     state.phase = "settle";
+    state.kittyRevealed = true;
+    state.kittyMultiplier = lastTrickWinnerIsScorer ? bottomMultiplier : 0;
+    state.kittyVisible = true;
     Render.setPlayButtonEnabled(false);
     Render.renderStatus(state);
+    Render.renderKitty(state);
+    Render.renderKittyMultiplier(state.kittyMultiplier, true);
+    Render.renderTrickPiles(state, onPileClick);
 
     const summaryParts = [
       `抠底加分：${bottomScore}`,
@@ -1034,20 +1119,27 @@ window.Game = (function () {
       roundOutcome
     ];
     summarizeRound(summaryParts.join("，"));
+    saveLevels();
 
     state.trumpReveal = { player: nextBankerIndex, reveal: null };
     state.trumpSuit = null;
     state.trumpRevealCards = [];
+    state.awaitingNextRound = true;
+    Render.setNextRoundButtonVisible(true);
+  }
 
-    setTimeout(() => {
-      state.lastRoundSummary = null;
-      Render.renderRuleMessage(null);
-      startGame();
-    }, 2000);
+  function startNextRound() {
+    if (!state.awaitingNextRound) return;
+    state.awaitingNextRound = false;
+    state.lastRoundSummary = null;
+    Render.renderKittyMultiplier(state.kittyMultiplier, false);
+    Render.renderRuleMessage("下一局开始");
+    startGame();
   }
 
   return {
     startGame,
+    startNextRound,
     playSelected: onHumanPlaySelected,
     state
   };
