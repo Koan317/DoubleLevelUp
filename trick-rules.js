@@ -231,6 +231,22 @@
     return { ok: true };
   }
 
+  function getSmallestThrowComponent(leadCards, trumpInfo) {
+    const components = splitThrowComponents(leadCards, trumpInfo);
+    if (!components.length) return null;
+
+    return components.reduce((min, current) => {
+      if (!min) return current;
+      if (current.power !== min.power) {
+        return current.power < min.power ? current : min;
+      }
+      if (current.length !== min.length) {
+        return current.length < min.length ? current : min;
+      }
+      return current;
+    }, null);
+  }
+
   function splitThrowComponents(cards, trumpInfo) {
     const leadPattern = Pattern.analyzePlay(cards, trumpInfo);
     if (leadPattern.type !== "throw") return [];
@@ -411,7 +427,8 @@
   };
 
   window.Throw = {
-    checkThrowMaximality
+    checkThrowMaximality,
+    getSmallestThrowComponent
   };
 
 })();

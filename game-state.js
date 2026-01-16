@@ -792,6 +792,15 @@ window.Game = (function () {
       const otherHands = state.players.filter((_, index) => index !== playerIndex);
       const check = Throw.checkThrowMaximality(cards, otherHands, state);
       if (!check.ok) {
+        const forcedComponent = Throw.getSmallestThrowComponent(cards, state);
+        if (forcedComponent?.cards?.length) {
+          state.invalidActionReason = `${sourceLabel}不合法：${check.reason}，已强制出小牌`;
+          Render.renderRuleMessage(state.invalidActionReason);
+          state.selectedCards = [];
+          Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+          commitPlay(playerIndex, forcedComponent.cards);
+          return true;
+        }
         state.invalidActionReason = `${sourceLabel}不合法：${check.reason}`;
         Render.renderRuleMessage(state.invalidActionReason);
         return false;
