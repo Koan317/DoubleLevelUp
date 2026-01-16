@@ -27,6 +27,8 @@ window.Game = (function () {
     nextBankerIndex: null,
     kittyRevealCard: null,
     kittyOwner: null,
+    lastTwistPlayer: null,
+    lastTwistReveal: null,
   };
 
   let revealCountdownTimer = null;
@@ -188,6 +190,8 @@ window.Game = (function () {
     state.invalidActionReason = null;
     state.bankerTeam = [];
     state.scoreTeam = [];
+    state.lastTwistPlayer = null;
+    state.lastTwistReveal = null;
     state.phase = isFirstRound ? "dealing" : "reveal";
     state.score = 0;
 
@@ -307,6 +311,7 @@ window.Game = (function () {
       findRevealsForHand(hand, revealOptions).forEach(candidate => {
         if (!candidate.reveal) return;
         if (!aiRevealAllowed(candidate, revealOptions)) return;
+        if (!canTwistByPlayer(index, candidate.reveal)) return;
         if (state.trumpReveal && state.trumpReveal.player === index) return;
         if (!best || (allowOverride && Trump.canOverride(candidate.reveal, best.reveal))) {
           best = {
@@ -444,6 +449,10 @@ window.Game = (function () {
       return;
     }
     const { reveal, cards: revealCards = [] } = candidate;
+    if (!canTwistByPlayer(0, reveal)) {
+      Render.renderRuleMessage("拧主需间隔其他玩家，除非加强");
+      return;
+    }
     if (state.trumpReveal && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
       return;
     }
@@ -508,7 +517,10 @@ window.Game = (function () {
 
     const pickCandidate = list => {
       if (!list.length) return null;
-      const sorted = list.slice().sort((a, b) => a.reveal.power - b.reveal.power);
+      const sorted = list
+        .filter(candidate => canTwistByPlayer(0, candidate.reveal))
+        .slice()
+        .sort((a, b) => a.reveal.power - b.reveal.power);
       if (!state.trumpReveal) return sorted[0];
       return sorted.find(candidate => Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) || null;
     };
@@ -528,6 +540,7 @@ window.Game = (function () {
       .filter(candidate => candidate.reveal);
     const matched = candidates.filter(candidate => {
       const { reveal } = candidate;
+      if (!canTwistByPlayer(0, reveal)) return false;
       if (key === "BJ") {
         return reveal.type === "DOUBLE_BJ" ||
           (reveal.type === "SINGLE_JOKER" && reveal.jokerRank === "BJ");
@@ -555,6 +568,8 @@ window.Game = (function () {
     state.trumpRevealCards = cards;
     state.bankerTeam = bankerIndex % 2 === 0 ? [0, 2] : [1, 3];
     state.scoreTeam = bankerIndex % 2 === 0 ? [1, 3] : [0, 2];
+    state.lastTwistPlayer = playerIndex;
+    state.lastTwistReveal = reveal;
   }
 
   function grantKittyToPlayer(playerIndex) {
@@ -657,6 +672,22 @@ window.Game = (function () {
     return key === "♠" || key === "♥" || key === "♣" || key === "♦";
   }
 
+  function isOneWangUpgrade(prevReveal, nextReveal) {
+    if (!prevReveal || !nextReveal) return false;
+    if (prevReveal.type !== "ONE_WANG_ONE" || nextReveal.type !== "ONE_WANG_TWO") {
+      return false;
+    }
+    return prevReveal.trumpSuit === nextReveal.trumpSuit;
+  }
+
+  function canTwistByPlayer(playerIndex, reveal) {
+    if (state.lastTwistPlayer === null || state.lastTwistPlayer === undefined) {
+      return true;
+    }
+    if (state.lastTwistPlayer !== playerIndex) return true;
+    return isOneWangUpgrade(state.lastTwistReveal, reveal);
+  }
+
   function attemptAutoRevealDuringDeal(playerIndex) {
     if (!isFirstRound()) return;
     if (state.trumpSuit) return;
@@ -664,7 +695,11 @@ window.Game = (function () {
     const hand = state.players[playerIndex];
     const revealOptions = getRevealOptions("dealing");
     const reveal = findRevealsForHand(hand, revealOptions)
-      .find(candidate => candidate?.reveal && aiRevealAllowed(candidate, revealOptions));
+      .find(candidate =>
+        candidate?.reveal &&
+        aiRevealAllowed(candidate, revealOptions) &&
+        canTwistByPlayer(playerIndex, candidate.reveal)
+      );
     if (!reveal?.reveal) return;
     applyReveal(reveal.reveal, playerIndex, reveal.cards || []);
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
