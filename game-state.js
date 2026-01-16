@@ -30,6 +30,14 @@ window.Game = (function () {
   };
 
   let revealCountdownTimer = null;
+  const playerLabels = ["南家", "西家", "北家", "东家"];
+
+  function formatCardForLog(card) {
+    if (card.suit === "JOKER") {
+      return card.rank === "BJ" ? "大王" : "小王";
+    }
+    return `${card.rank}${card.suit}`;
+  }
 
   function clearRevealCountdown() {
     if (revealCountdownTimer) {
@@ -770,6 +778,14 @@ window.Game = (function () {
   function tryPlay(playerIndex, cards, options = {}) {
     const leadPattern = state.currentTrick[0]?.pattern || null;
     const sourceLabel = options.source || "操作";
+    const playPattern = Pattern.analyzePlay(cards, state);
+
+    // 首家禁止混合花色出牌
+    if (!leadPattern && playPattern.isMixedSuit) {
+      state.invalidActionReason = `${sourceLabel}不合法：首家不能出混合花色`;
+      Render.renderRuleMessage(state.invalidActionReason);
+      return false;
+    }
 
     // 跟牌校验
     if (leadPattern) {
@@ -849,6 +865,12 @@ window.Game = (function () {
   }
 
   function finishTrick() {
+    const trickLog = state.currentTrick.map(play => ({
+      player: play.player,
+      label: playerLabels[play.player] || `玩家${play.player}`,
+      cards: play.cards.map(formatCardForLog)
+    }));
+    console.log("本回合出牌", trickLog);
     const winner = Compare.compareTrickPlays(
       state.currentTrick,
       state
@@ -879,11 +901,6 @@ window.Game = (function () {
     }
     if (winner !== 0) {
       setTimeout(() => aiTurn(winner), 1000);
-    } else {
-      console.log("下一轮首家：玩家", {
-        phase: state.phase,
-        playerHand: state.players[0].length
-      });
     }
   }
 

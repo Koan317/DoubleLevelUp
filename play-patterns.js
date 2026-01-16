@@ -63,6 +63,8 @@
 
     const suitType = mapped.every(c => c.isTrump) ? "trump" : "side";
     const suit = suitType === "side" ? mapped[0].suit : null;
+    const suitKeys = new Set(mapped.map(c => (c.isTrump ? "trump" : c.suit)));
+    const isMixedSuit = suitKeys.size > 1;
 
     // 分组（按花色+点数）
     const groups = {};
@@ -86,6 +88,10 @@
       type = "throw";
     }
 
+    if (isMixedSuit && cards.length > 1) {
+      type = "throw";
+    }
+
     const rankPowers = getRankPowers(groups);
     const mainRank = getMainRank(ranks, rankPowers);
 
@@ -96,6 +102,7 @@
       suitType,
       suit,
       isTrump: suitType === "trump",
+      isMixedSuit,
 
       mainRank,
       power: rankPowers[mainRank] ?? 0,

@@ -17,24 +17,47 @@
 
     const followPattern = Pattern.analyzePlay(followCards, trumpInfo);
 
-    // 2️⃣ 是否有“跟的能力”
-    const canFollowSuit = hasSuitToFollow(leadPattern, handCards, trumpInfo);
+    const matchingCards = handCards.filter(card => {
+      if (leadPattern.suitType === "trump") {
+        return Rules.isTrump(card, trumpInfo);
+      }
+      return !Rules.isTrump(card, trumpInfo) && card.suit === leadPattern.suit;
+    });
+    const matchingCount = matchingCards.length;
 
-    // 3️⃣ 有能力却没跟 → 非法
-    if (canFollowSuit && !sameSuitType(leadPattern, followPattern)) {
-      return illegal("未按要求跟主/副");
+    // 2️⃣ 有同花色且数量足够 → 禁止出其他花色
+    if (matchingCount >= leadPattern.length) {
+      const allMatchSuit = followCards.every(card => {
+        if (leadPattern.suitType === "trump") {
+          return Rules.isTrump(card, trumpInfo);
+        }
+        return !Rules.isTrump(card, trumpInfo) && card.suit === leadPattern.suit;
+      });
+      if (!allMatchSuit) {
+        return illegal("有同花色必须全跟");
+      }
     }
 
-    // 4️⃣ 对子义务
-    if (leadPattern.type === "pair" &&
+    // 3️⃣ 有同花色但数量不足 → 必须出完同花色再贴牌
+    if (matchingCount > 0 && matchingCount < leadPattern.length) {
+      const hasAllMatching = matchingCards.every(card => followCards.includes(card));
+      if (!hasAllMatching) {
+        return illegal("同花色未尽最大义务");
+      }
+    }
+
+    // 4️⃣ 对子义务（仅在同花色数量足够时）
+    if (matchingCount >= leadPattern.length &&
+        leadPattern.type === "pair" &&
         hasPairToFollow(leadPattern, handCards, trumpInfo)) {
       if (followPattern.type !== "pair") {
         return illegal("有对子未跟对子");
       }
     }
 
-    // 5️⃣ 拖拉机义务
-    if (leadPattern.type === "tractor" &&
+    // 5️⃣ 拖拉机义务（仅在同花色数量足够时）
+    if (matchingCount >= leadPattern.length &&
+        leadPattern.type === "tractor" &&
         hasTractorToFollow(leadPattern, handCards, trumpInfo)) {
 
       if (followPattern.type !== "tractor") {
@@ -75,11 +98,27 @@
     const pa = a.pattern;
     const pb = b.pattern;
 
-    // 1️⃣ 主压副
+    const aIsLead = pa === leadPattern;
+    const bIsLead = pb === leadPattern;
+
+    // 0️⃣ 贴牌（混合花色）一律算小（非首家）
+    if (!aIsLead && !bIsLead && pa.isMixedSuit && pb.isMixedSuit) return false;
+    if (!aIsLead && pa.isMixedSuit && !( !bIsLead && pb.isMixedSuit)) return false;
+    if (!bIsLead && pb.isMixedSuit && !( !aIsLead && pa.isMixedSuit)) return true;
+
+    // 1️⃣ 贴牌（未按首家牌型跟）一律算小
+    if (leadPattern.type !== "throw") {
+      const aMatchesLead = pa.type === leadPattern.type;
+      const bMatchesLead = pb.type === leadPattern.type;
+      if (aMatchesLead && !bMatchesLead) return true;
+      if (!aMatchesLead && bMatchesLead) return false;
+    }
+
+    // 2️⃣ 主压副
     if (pa.suitType === "trump" && pb.suitType !== "trump") return true;
     if (pa.suitType !== "trump" && pb.suitType === "trump") return false;
 
-    // 2️⃣ 副牌必须跟首家花色
+    // 3️⃣ 副牌必须跟首家花色
     if (pa.suitType === "side" && pb.suitType === "side") {
       const aFollow = pa.suit === leadPattern.suit;
       const bFollow = pb.suit === leadPattern.suit;
@@ -88,7 +127,7 @@
       if (!aFollow && bFollow) return false;
     }
 
-    // 3️⃣ 同类型比大小
+    // 4️⃣ 同类型比大小
     return pa.power > pb.power;
   }
 
