@@ -787,6 +787,17 @@ window.Game = (function () {
       return false;
     }
 
+    // 首家甩牌最大性校验
+    if (!leadPattern && playPattern.type === "throw") {
+      const otherHands = state.players.filter((_, index) => index !== playerIndex);
+      const check = Throw.checkThrowMaximality(cards, otherHands, state);
+      if (!check.ok) {
+        state.invalidActionReason = `${sourceLabel}不合法：${check.reason}`;
+        Render.renderRuleMessage(state.invalidActionReason);
+        return false;
+      }
+    }
+
     // 跟牌校验
     if (leadPattern) {
       const check = Follow.validateFollowPlay({
@@ -876,6 +887,9 @@ window.Game = (function () {
       state
     );
     const winningPlay = state.currentTrick.find(play => play.player === winner);
+    const winningPattern = winningPlay
+      ? { ...winningPlay.pattern, cards: winningPlay.cards }
+      : null;
     const trickCards = state.currentTrick.flatMap(play => play.cards);
     if (state.scoreTeam.includes(winner)) {
       state.score += Score.totalTrickScore(trickCards);
@@ -896,7 +910,7 @@ window.Game = (function () {
     Render.setPlayButtonEnabled(winner === 0);
     Render.setPlayButtonVisible(true);
     if (isLastTrick) {
-      settleRound({ winner, winningPattern: winningPlay?.pattern });
+      settleRound({ winner, winningPattern });
       return;
     }
     if (winner !== 0) {
@@ -906,6 +920,18 @@ window.Game = (function () {
 
   function settleRound({ winner, winningPattern }) {
     const lastTrickWinnerIsScorer = state.scoreTeam.includes(winner);
+    const bottomMultiplier = lastTrickWinnerIsScorer
+      ? Bottom.calcMultiplierByWinningPlay(
+          winningPattern || { type: "single", length: 1, cards: [] },
+          state.level
+        )
+      : 0;
+    console.log("回合结束信息", {
+      lastTrickWinner: playerLabels[winner] || `玩家${winner}`,
+      bottomCards: state.kitty.map(formatCardForLog),
+      isKouDi: lastTrickWinnerIsScorer,
+      bottomMultiplier
+    });
     const bottomScore = Bottom.settleBottom({
       bottomCards: state.kitty,
       lastTrickWinnerIsScorer,

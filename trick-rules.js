@@ -203,6 +203,197 @@
            follow.suit === lead.suit;
   }
 
+  function checkThrowMaximality(leadCards, otherHands, trumpInfo) {
+    const leadPattern = Pattern.analyzePlay(leadCards, trumpInfo);
+    if (leadPattern.type !== "throw") {
+      return { ok: true };
+    }
+
+    const components = splitThrowComponents(leadCards, trumpInfo);
+    if (components.length === 0) {
+      return { ok: true };
+    }
+
+    for (let i = 0; i < otherHands.length; i++) {
+      const hand = otherHands[i];
+      for (const component of components) {
+        if (handCanBeatComponent(component, hand, trumpInfo, leadPattern)) {
+          return {
+            ok: false,
+            reason: "甩牌未保证最大性",
+            component,
+            playerIndex: i
+          };
+        }
+      }
+    }
+
+    return { ok: true };
+  }
+
+  function splitThrowComponents(cards, trumpInfo) {
+    const leadPattern = Pattern.analyzePlay(cards, trumpInfo);
+    if (leadPattern.type !== "throw") return [];
+
+    const groups = buildCardGroups(cards);
+    const components = [];
+    const pairsBySuit = new Map();
+
+    groups.forEach((groupCards, key) => {
+      if (groupCards.length < 2) return;
+      const { suit, rank } = parseGroupKey(key);
+      if (!pairsBySuit.has(suit)) {
+        pairsBySuit.set(suit, []);
+      }
+      pairsBySuit.get(suit).push(rank);
+    });
+
+    pairsBySuit.forEach((ranks, suit) => {
+      const tractors = Tractor.detectTractors(
+        ranks.map(rank => ({ rank })),
+        trumpInfo.level
+      );
+      tractors.forEach(sequence => {
+        const tractorCards = [];
+        sequence.forEach(({ rank }) => {
+          const key = `${suit}-${rank}`;
+          const group = groups.get(key);
+          if (!group || group.length < 2) return;
+          tractorCards.push(group.pop(), group.pop());
+        });
+        if (tractorCards.length) {
+          components.push(buildComponent(tractorCards, trumpInfo));
+        }
+      });
+    });
+
+    groups.forEach(groupCards => {
+      while (groupCards.length >= 2) {
+        const pairCards = groupCards.splice(0, 2);
+        components.push(buildComponent(pairCards, trumpInfo));
+      }
+    });
+
+    groups.forEach(groupCards => {
+      groupCards.forEach(card => {
+        components.push(buildComponent([card], trumpInfo));
+      });
+      groupCards.length = 0;
+    });
+
+    return components;
+  }
+
+  function handCanBeatComponent(component, handCards, trumpInfo, leadPattern) {
+    const leadSuitType = leadPattern.suitType;
+    const leadSuit = leadPattern.suit;
+    const candidates = handCards.filter(card => {
+      if (leadSuitType === "trump") {
+        return Rules.isTrump(card, trumpInfo);
+      }
+      return !Rules.isTrump(card, trumpInfo) && card.suit === leadSuit;
+    });
+
+    if (component.type === "single") {
+      return candidates.some(card => {
+        const p = Pattern.analyzePlay([card], trumpInfo);
+        return p.power > component.power;
+      });
+    }
+
+    if (component.type === "pair") {
+      const groups = buildCardGroups(candidates);
+      for (const groupCards of groups.values()) {
+        if (groupCards.length >= 2) {
+          const p = Pattern.analyzePlay(groupCards.slice(0, 2), trumpInfo);
+          if (p.power > component.power) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    if (component.type === "tractor") {
+      const groups = buildCardGroups(candidates);
+      const pairsBySuit = new Map();
+      groups.forEach((groupCards, key) => {
+        if (groupCards.length < 2) return;
+        const { suit, rank } = parseGroupKey(key);
+        if (!pairsBySuit.has(suit)) {
+          pairsBySuit.set(suit, []);
+        }
+        pairsBySuit.get(suit).push(rank);
+      });
+
+      for (const [suit, ranks] of pairsBySuit.entries()) {
+        const tractors = Tractor.detectTractors(
+          ranks.map(rank => ({ rank })),
+          trumpInfo.level
+        );
+        for (const sequence of tractors) {
+          if (sequence.length * 2 !== component.length) continue;
+          const power = maxSequencePower(sequence, suit, groups, trumpInfo);
+          if (power > component.power) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  function maxSequencePower(sequence, suit, groups, trumpInfo) {
+    let max = -Infinity;
+    sequence.forEach(({ rank }) => {
+      const key = `${suit}-${rank}`;
+      const groupCards = groups.get(key);
+      if (!groupCards || groupCards.length === 0) return;
+      const power = Rules.cardPower(groupCards[0], trumpInfo);
+      if (power > max) max = power;
+    });
+    return max;
+  }
+
+  function buildComponent(cards, trumpInfo) {
+    const pattern = Pattern.analyzePlay(cards, trumpInfo);
+    return {
+      type: pattern.type,
+      length: pattern.length,
+      power: pattern.power,
+      cards
+    };
+  }
+
+  function buildCardGroups(cards) {
+    const groups = new Map();
+    cards.forEach(card => {
+      const key = buildGroupKey(card);
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(card);
+    });
+    return groups;
+  }
+
+  function buildGroupKey(card) {
+    return `${card.suit}-${normalizeRank(card)}`;
+  }
+
+  function parseGroupKey(key) {
+    const [suit, rank] = key.split("-");
+    return { suit, rank };
+  }
+
+  function normalizeRank(card) {
+    if (card.suit === "JOKER") {
+      return card.rank === "BJ" ? "BJ" : "SJ";
+    }
+    return card.rank;
+  }
+
   function illegal(reason) {
     return { ok: false, reason };
   }
@@ -217,6 +408,10 @@
 
   window.Follow = {
     validateFollowPlay
+  };
+
+  window.Throw = {
+    checkThrowMaximality
   };
 
 })();
