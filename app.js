@@ -10,4 +10,9 @@ if (playButton) {
   playButton.onclick = () => Game.playSelected();
 }
 
+const nextRoundButton = document.getElementById("nextRoundButton");
+if (nextRoundButton) {
+  nextRoundButton.onclick = () => Game.startNextRound();
+}
+
 Game.startGame();

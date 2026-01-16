@@ -1,6 +1,7 @@
 ﻿// ui-render.js
 
 window.Render = (function () {
+  const ruleMessages = [];
 
   function renderHand(hand, state, onSelect, selectedCards = [], options = {}) {
     const el = document.getElementById("hand");
@@ -35,8 +36,10 @@ window.Render = (function () {
       });
   }
 
-  function renderTrick(trick, state) {
+  function renderTrick(trick, state, options = {}) {
     document.querySelectorAll(".played").forEach(e => e.innerHTML = "");
+    const animatePlayer = options.animatePlayer ?? null;
+    const lastPlay = trick[trick.length - 1];
 
     trick.forEach(t => {
       const area = ["south","west","north","east"][t.player];
@@ -44,6 +47,9 @@ window.Render = (function () {
       const sortedCards = state ? t.cards.slice().sort((a, b) => sortHandCards(a, b, state)) : t.cards;
       sortedCards.forEach(card => {
         const c = createCardElement(card);
+        if (lastPlay && t.player === animatePlayer && t === lastPlay) {
+          c.classList.add("play-animate");
+        }
         el.appendChild(c);
       });
     });
@@ -108,12 +114,22 @@ window.Render = (function () {
     el.classList.remove("hidden");
     el.innerHTML = "";
     const cardCount = state.kitty?.length || 8;
-    for (let i = 0; i < cardCount; i += 1) {
-      const card = createCardBackElement();
-      card.classList.add("kitty-card");
-      card.style.left = `${i * 6}px`;
-      card.style.top = `${i * 2}px`;
-      el.appendChild(card);
+    if (state.kittyRevealed) {
+      state.kitty.forEach((card, index) => {
+        const face = createCardElement(card);
+        face.classList.add("kitty-faceup");
+        face.style.setProperty("--kitty-faceup-x", `${index * 6}px`);
+        face.style.setProperty("--kitty-faceup-y", `${index * 2}px`);
+        el.appendChild(face);
+      });
+    } else {
+      for (let i = 0; i < cardCount; i += 1) {
+        const card = createCardBackElement();
+        card.classList.add("kitty-card");
+        card.style.left = `${i * 6}px`;
+        card.style.top = `${i * 2}px`;
+        el.appendChild(card);
+      }
     }
     if (state.kittyRevealCard) {
       const reveal = createCardElement(state.kittyRevealCard);
@@ -281,18 +297,25 @@ window.Render = (function () {
     }
 
     const tableRect = table.getBoundingClientRect();
-    const offset = Math.min(tableRect.width, tableRect.height) * 0.32;
-    let top = tableRect.height / 2;
-    let left = tableRect.width / 2;
+    const pile = document.querySelector(`.trick-pile.${area}`);
+    if (!pile) {
+      badge.className = "banker-badge hidden";
+      badge.textContent = "";
+      return;
+    }
+    const pileRect = pile.getBoundingClientRect();
+    let top = pileRect.top - tableRect.top + pileRect.height / 2;
+    let left = pileRect.left - tableRect.left + pileRect.width / 2;
+    const gap = 34;
 
     if (area === "north") {
-      top = tableRect.height / 2 - offset;
+      top -= gap;
     } else if (area === "south") {
-      top = tableRect.height / 2 + offset;
+      top += gap;
     } else if (area === "west") {
-      left = tableRect.width / 2 - offset;
+      left -= gap;
     } else if (area === "east") {
-      left = tableRect.width / 2 + offset;
+      left += gap;
     }
 
     badge.textContent = "庄";
@@ -309,8 +332,12 @@ window.Render = (function () {
       return;
     }
     const cards = kitty.querySelectorAll(".kitty-card");
-    cards.forEach(card => card.classList.remove("kitty-move"));
+    cards.forEach(card => {
+      card.classList.remove("kitty-move");
+      card.classList.add("kitty-return");
+    });
     setTimeout(() => {
+      cards.forEach(card => card.classList.remove("kitty-return"));
       if (onComplete) onComplete();
     }, 700);
   }
@@ -333,7 +360,118 @@ window.Render = (function () {
     if (message === null || message === undefined || message === "") {
       return;
     }
-    el.textContent = message;
+    const lastMessage = ruleMessages[ruleMessages.length - 1];
+    if (lastMessage === message) {
+      return;
+    }
+    ruleMessages.push(message);
+    while (ruleMessages.length > 20) {
+      ruleMessages.shift();
+    }
+    el.innerHTML = "";
+    ruleMessages.forEach((msg, index) => {
+      const item = document.createElement("div");
+      item.textContent = msg;
+      el.appendChild(item);
+      if (index < ruleMessages.length - 1) {
+        const divider = document.createElement("div");
+        divider.className = "rule-divider";
+        el.appendChild(divider);
+      }
+    });
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function renderKittyMultiplier(multiplier, visible) {
+    const el = document.getElementById("kitty-multiplier");
+    if (!el) return;
+    if (!visible) {
+      el.classList.add("hidden");
+      el.textContent = "";
+      return;
+    }
+    el.textContent = `×${multiplier ?? 0}`;
+    el.classList.remove("hidden");
+  }
+
+  function renderTrickPiles(state, onPileClick) {
+    const piles = document.querySelectorAll(".trick-pile");
+    piles.forEach(pile => {
+      pile.innerHTML = "";
+      const playerIndex = Number(pile.dataset.player);
+      const history = state.trickHistory?.[playerIndex] || [];
+      if (!history.length) {
+        pile.onclick = null;
+        return;
+      }
+      const lastEntry = history[history.length - 1];
+      lastEntry.cards.forEach(card => {
+        const c = createCardElement(card);
+        pile.appendChild(c);
+      });
+      pile.onclick = () => onPileClick(playerIndex);
+    });
+  }
+
+  function renderKittyOwnerProof(playerIndex, card) {
+    const area = ["south","west","north","east"][playerIndex];
+    const el = document.querySelector(`.${area}`);
+    if (!el) return;
+    el.innerHTML = "";
+    const proof = createCardElement(card);
+    proof.classList.add("kitty-proof");
+    el.appendChild(proof);
+  }
+
+  function showPileModal(playerIndex, state) {
+    const modal = document.getElementById("pile-modal");
+    const body = modal?.querySelector(".pile-modal-body");
+    if (!modal || !body) return;
+    body.innerHTML = "";
+    const history = state.trickHistory?.[playerIndex] || [];
+    history.forEach((entry, index) => {
+      const item = document.createElement("div");
+      item.className = "pile-entry";
+      const header = document.createElement("div");
+      header.className = "pile-entry-header";
+      header.textContent = `回合 ${entry.trickIndex ?? index + 1}`;
+      if (entry.isMax) {
+        const maxTag = document.createElement("span");
+        maxTag.className = "pile-entry-max";
+        maxTag.textContent = "最大";
+        header.appendChild(maxTag);
+      }
+      const cards = document.createElement("div");
+      cards.className = "pile-entry-cards";
+      entry.cards.forEach(card => {
+        cards.appendChild(createCardElement(card));
+      });
+      item.appendChild(header);
+      item.appendChild(cards);
+      body.appendChild(item);
+    });
+    modal.classList.remove("hidden");
+  }
+
+  function hidePileModal() {
+    const modal = document.getElementById("pile-modal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+  }
+
+  function bindPileModalHandlers() {
+    const modal = document.getElementById("pile-modal");
+    if (!modal || modal.dataset.bound) return;
+    const closeButton = modal.querySelector(".pile-modal-close");
+    if (closeButton) {
+      closeButton.onclick = () => hidePileModal();
+    }
+    modal.onclick = event => {
+      if (event.target === modal) {
+        hidePileModal();
+      }
+    };
+    modal.dataset.bound = "true";
   }
 
   function setPlayButtonEnabled(enabled) {
@@ -354,6 +492,12 @@ window.Render = (function () {
     button.textContent = label;
   }
 
+  function setNextRoundButtonVisible(visible) {
+    const button = document.getElementById("nextRoundButton");
+    if (!button) return;
+    button.classList.toggle("hidden", !visible);
+  }
+
   return {
     renderHand,
     renderTrick,
@@ -365,9 +509,16 @@ window.Render = (function () {
     animateKittyTransfer,
     animateKittyReturn,
     renderRuleMessage,
+    renderKittyMultiplier,
+    renderTrickPiles,
+    renderKittyOwnerProof,
+    showPileModal,
+    hidePileModal,
+    bindPileModalHandlers,
     setPlayButtonEnabled,
     setPlayButtonVisible,
-    setPlayButtonLabel
+    setPlayButtonLabel,
+    setNextRoundButtonVisible
   };
 
 })();
