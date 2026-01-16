@@ -330,7 +330,10 @@ window.Render = (function () {
   function renderRuleMessage(message) {
     const el = document.getElementById("rule-message");
     if (!el) return;
-    el.textContent = message || "";
+    if (message === null || message === undefined || message === "") {
+      return;
+    }
+    el.textContent = message;
   }
 
   function setPlayButtonEnabled(enabled) {
