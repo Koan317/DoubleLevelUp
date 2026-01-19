@@ -57,38 +57,46 @@
     background-image: var(--table-texture);
     background-blend-mode: soft-light;
     height: 100%;
+    --layout-gap: 20px;
+    --kitty-width: 200px;
+    --kitty-height: 130px;
+    --trick-pile-width: 150px;
+    --trick-pile-height: 110px;
+    --badge-width: 96px;
+    --badge-height: 36px;
+    --play-area-width: 240px;
+    --play-area-height: 150px;
+    --hand-zone-height: 210px;
 }
 
 .played {
     position: absolute;
-    min-width: 200px;
-    min-height: 120px;
+    min-width: var(--play-area-width);
+    min-height: var(--play-area-height);
     display: flex;
     align-items: flex-end;
 }
 
 .north {
-    top: 20px;
+    top: calc(50% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height) - var(--layout-gap) - var(--badge-height) - var(--layout-gap) - var(--play-area-height));
     left: 50%;
     transform: translateX(-50%);
 }
 
 .south {
-    bottom: 200px;
+    bottom: calc(var(--hand-zone-height) + var(--layout-gap));
     left: 50%;
     transform: translateX(-50%);
 }
 
 .west {
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%);
+    left: calc(50% - (var(--kitty-width) / 2) - var(--layout-gap) - var(--trick-pile-width) - var(--layout-gap) - var(--badge-width) - var(--layout-gap) - var(--play-area-width));
+    top: calc(50% - (var(--play-area-height) / 2));
 }
 
 .east {
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
+    left: calc(50% + (var(--kitty-width) / 2) + var(--layout-gap) + var(--trick-pile-width) + var(--layout-gap) + var(--badge-width) + var(--layout-gap));
+    top: calc(50% - (var(--play-area-height) / 2));
 }
 
 #reveal-countdown {
@@ -130,26 +138,26 @@
 }
 
 .banker-badge.kitty-north {
-    top: calc(50% - (var(--kitty-height) / 2) - var(--kitty-badge-gap, 12px));
+    top: calc(50% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height) - var(--layout-gap) - var(--badge-height));
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-south {
-    top: calc(50% + (var(--kitty-height) / 2) + var(--kitty-badge-gap, 12px));
+    top: calc(50% + (var(--kitty-height) / 2) + var(--layout-gap) + var(--trick-pile-height) + var(--layout-gap));
     left: 50%;
     transform: translateX(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-west {
     top: 50%;
-    left: calc(50% - (var(--kitty-width) / 2) - var(--kitty-badge-gap, 12px));
+    left: calc(50% - (var(--kitty-width) / 2) - var(--layout-gap) - var(--trick-pile-width) - var(--layout-gap) - var(--badge-width));
     transform: translateY(-50%) rotate(-6deg);
 }
 
 .banker-badge.kitty-east {
     top: 50%;
-    left: calc(50% + (var(--kitty-width) / 2) + var(--kitty-badge-gap, 12px));
+    left: calc(50% + (var(--kitty-width) / 2) + var(--layout-gap) + var(--trick-pile-width) + var(--layout-gap));
     transform: translateY(-50%) rotate(-6deg);
 }
 
@@ -158,9 +166,6 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    --kitty-width: 200px;
-    --kitty-height: 130px;
-    --kitty-badge-gap: 12px;
     width: var(--kitty-width);
     height: var(--kitty-height);
     display: block;
@@ -199,10 +204,9 @@
 }
 
 .trick-pile {
-    --trick-pile-gap: 16px;
     position: absolute;
-    min-width: 120px;
-    min-height: 80px;
+    width: var(--trick-pile-width);
+    height: var(--trick-pile-height);
     display: flex;
     align-items: flex-end;
     justify-content: center;
@@ -211,27 +215,25 @@
 }
 
 .trick-pile.north {
-    top: calc(50% - var(--kitty-height) / 2 - var(--trick-pile-gap));
+    top: calc(50% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height));
     left: 50%;
-    transform: translate(-50%, -100%);
+    transform: translateX(-50%);
 }
 
 .trick-pile.south {
-    top: calc(50% + var(--kitty-height) / 2 + var(--trick-pile-gap));
+    top: calc(50% + (var(--kitty-height) / 2) + var(--layout-gap));
     left: 50%;
     transform: translateX(-50%);
 }
 
 .trick-pile.west {
-    left: calc(50% - var(--kitty-width) / 2 - var(--trick-pile-gap));
-    top: 50%;
-    transform: translate(-100%, -50%);
+    left: calc(50% - (var(--kitty-width) / 2) - var(--layout-gap) - var(--trick-pile-width));
+    top: calc(50% - (var(--trick-pile-height) / 2));
 }
 
 .trick-pile.east {
-    left: calc(50% + var(--kitty-width) / 2 + var(--trick-pile-gap));
-    top: 50%;
-    transform: translate(0, -50%);
+    left: calc(50% + (var(--kitty-width) / 2) + var(--layout-gap));
+    top: calc(50% - (var(--trick-pile-height) / 2));
 }
 
 .trick-pile .card {
@@ -273,7 +275,7 @@
 }
 #hand-actions {
     position: absolute;
-    bottom: 160px;
+    bottom: calc(var(--hand-zone-height) - 60px);
     left: 50%;
     transform: translateX(-50%);
     display: flex;
