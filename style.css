@@ -273,6 +273,12 @@
     transform: translate(var(--kitty-faceup-x, 0px), var(--kitty-faceup-y, 0px));
     z-index: 2;
 }
+
+#kitty.kitty-stacked .kitty-faceup {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) translate(var(--kitty-faceup-x, 0px), var(--kitty-faceup-y, 0px));
+}
 #hand-actions {
     position: absolute;
     bottom: calc(var(--hand-zone-height) - 60px);
