@@ -199,6 +199,7 @@
 }
 
 .trick-pile {
+    --trick-pile-gap: 16px;
     position: absolute;
     min-width: 120px;
     min-height: 80px;
@@ -210,27 +211,27 @@
 }
 
 .trick-pile.north {
-    top: calc(50% - var(--kitty-height) / 2 - 100px);
+    top: calc(50% - var(--kitty-height) / 2 - var(--trick-pile-gap));
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -100%);
 }
 
 .trick-pile.south {
-    top: calc(50% + var(--kitty-height) / 2 + 40px);
+    top: calc(50% + var(--kitty-height) / 2 + var(--trick-pile-gap));
     left: 50%;
     transform: translateX(-50%);
 }
 
 .trick-pile.west {
-    left: calc(50% - var(--kitty-width) / 2 - 150px);
+    left: calc(50% - var(--kitty-width) / 2 - var(--trick-pile-gap));
     top: 50%;
-    transform: translateY(-50%);
+    transform: translate(-100%, -50%);
 }
 
 .trick-pile.east {
-    right: calc(50% - var(--kitty-width) / 2 - 150px);
+    left: calc(50% + var(--kitty-width) / 2 + var(--trick-pile-gap));
     top: 50%;
-    transform: translateY(-50%);
+    transform: translate(0, -50%);
 }
 
 .trick-pile .card {
