@@ -958,7 +958,7 @@ window.Game = (function () {
     Render.renderTrick(state.currentTrick, state, { animatePlayer: playerIndex });
 
     if (state.currentTrick.length === 4) {
-      finishTrick();
+      setTimeout(() => finishTrick(), 1000);
       return;
     }
 
