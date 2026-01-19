@@ -146,7 +146,9 @@ window.AI = (function () {
     const tractors = [];
     grouped.forEach(group => {
       if (group.pairs.length < 2) return;
-      const sequences = Tractor.detectTractors(group.pairs, state.level);
+      const sequences = Tractor.detectTractors(group.pairs, state, {
+        suitType: group.suitType
+      });
       sequences.forEach(sequence => {
         const cards = [];
         sequence.forEach(pair => {

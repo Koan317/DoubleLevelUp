@@ -14,30 +14,63 @@
     return RANKS[(i + 1) % RANKS.length];
   }
 
-  // 判断两个对子是否连续（支持隔主）
-  function isConsecutivePair(a, b, level) {
-    if (nextRank(a.rank) === b.rank) return true;
-
-    // 隔的是主
-    if (nextRank(a.rank) === level) {
-      return nextRank(level) === b.rank;
+  function normalizeTrumpInfo(trumpInfoOrLevel) {
+    if (typeof trumpInfoOrLevel === "string") {
+      return { level: trumpInfoOrLevel, trumpSuit: null };
     }
-    return false;
+    return trumpInfoOrLevel ?? { level: null, trumpSuit: null };
+  }
+
+  function resolveSuitType(trumpInfo, options = {}) {
+    if (options.suitType) {
+      return options.suitType === "trump" ? "trump" : "side";
+    }
+    if (options.suit === "JOKER") return "trump";
+    if (options.suit && options.suit === trumpInfo.trumpSuit) return "trump";
+    return "side";
+  }
+
+  function getSequenceOrder(trumpInfo, suitType = "trump") {
+    if (suitType === "side") return [...BASE_ORDER];
+    return BASE_ORDER.filter(r => r !== trumpInfo.level);
+  }
+
+  function isJokerTractorRanks(pairRanks) {
+    if (pairRanks.length !== 2) return false;
+    const ranks = pairRanks.map(pair => pair.rank).sort();
+    return ranks[0] === "BJ" && ranks[1] === "SJ";
   }
 
   // 识别拖拉机
-  function detectTractors(pairs, level) {
+  function detectTractors(pairs, trumpInfoOrLevel, options = {}) {
     if (pairs.length < 2) return [];
 
-    const sorted = [...pairs].sort(
-      (a, b) => rankIndex(a.rank) - rankIndex(b.rank)
-    );
+    const trumpInfo = normalizeTrumpInfo(trumpInfoOrLevel);
+    const suitType = resolveSuitType(trumpInfo, options);
+
+    if (options.suit === "JOKER") {
+      const byRank = Object.fromEntries(pairs.map(pair => [pair.rank, pair]));
+      if (byRank.BJ && byRank.SJ) {
+        return [[byRank.SJ, byRank.BJ]];
+      }
+      return [];
+    }
+
+    const order = getSequenceOrder(trumpInfo, suitType);
+    const sorted = pairs
+      .map(pair => ({ pair, idx: order.indexOf(pair.rank) }))
+      .filter(item => item.idx >= 0)
+      .sort((a, b) => a.idx - b.idx)
+      .map(item => item.pair);
+
+    if (sorted.length < 2) return [];
 
     const tractors = [];
     let current = [sorted[0]];
 
     for (let i = 1; i < sorted.length; i++) {
-      if (isConsecutivePair(current[current.length - 1], sorted[i], level)) {
+      const prev = current[current.length - 1];
+      if (order.indexOf(prev.rank) + 1 === order.indexOf(sorted[i].rank)) {
         current.push(sorted[i]);
       } else {
         if (current.length >= 2) tractors.push([...current]);
@@ -61,10 +94,29 @@
       power: Rules.cardPower(c, trumpInfo)
     }));
 
-    const suitType = mapped.every(c => c.isTrump) ? "trump" : "side";
-    const suit = suitType === "side" ? mapped[0].suit : null;
-    const suitKeys = new Set(mapped.map(c => (c.isTrump ? "trump" : c.suit)));
-    const isMixedSuit = suitKeys.size > 1;
+    const allTrump = mapped.every(c => c.isTrump);
+    const nonJokers = mapped.filter(c => c.suit !== "JOKER");
+    const nonJokerSuit = nonJokers[0]?.suit ?? null;
+    const sameNonJokerSuit = nonJokers.every(c => c.suit === nonJokerSuit);
+    const hasJoker = mapped.length !== nonJokers.length;
+
+    let suitType;
+    let suit;
+    let isMixedSuit;
+
+    if (allTrump) {
+      suitType = "trump";
+      suit = null;
+      isMixedSuit = false;
+    } else if (sameNonJokerSuit && !hasJoker) {
+      suitType = "side";
+      suit = nonJokerSuit;
+      isMixedSuit = false;
+    } else {
+      suitType = "side";
+      suit = nonJokerSuit;
+      isMixedSuit = true;
+    }
 
     // 分组（按花色+点数）
     const groups = {};
@@ -82,7 +134,7 @@
       type = "single";
     } else if (cards.length === 2 && counts[0] === 2) {
       type = "pair";
-    } else if (isTractor(groups, trumpInfo)) {
+    } else if (isTractor(groups, trumpInfo, suitType)) {
       type = "tractor";
     } else {
       type = "throw";
@@ -94,6 +146,8 @@
 
     const rankPowers = getRankPowers(groups);
     const mainRank = getMainRank(ranks, rankPowers);
+    const isJokerTractor = type === "tractor" && mapped.every(c => c.suit === "JOKER") &&
+      isJokerTractorRanks(ranks.map(parseGroupKey));
 
     return {
       type,
@@ -103,6 +157,7 @@
       suit,
       isTrump: suitType === "trump",
       isMixedSuit,
+      isJokerTractor,
 
       mainRank,
       power: rankPowers[mainRank] ?? 0,
@@ -148,7 +203,7 @@
       })[0];
   }
 
-  function isTractor(groups, trumpInfo) {
+  function isTractor(groups, trumpInfo, suitType) {
     const pairRanks = Object.keys(groups)
       .filter(r => groups[r].length === 2)
       .map(r => parseGroupKey(r));
@@ -158,20 +213,20 @@
     const suits = new Set(pairRanks.map(r => r.suit));
     if (suits.size !== 1) return false;
 
-    const order = getSequenceOrder(trumpInfo);
+    const suit = pairRanks[0].suit;
+    if (suit === "JOKER") return isJokerTractorRanks(pairRanks);
+
+    const order = getSequenceOrder(trumpInfo, suitType);
     const idxs = pairRanks
       .map(r => order.indexOf(r.rank))
-      .filter(i => i >= 0)
       .sort((a,b)=>a-b);
+
+    if (idxs.some(i => i < 0)) return false;
 
     for (let i = 1; i < idxs.length; i++) {
       if (idxs[i] !== idxs[i-1] + 1) return false;
     }
     return true;
-  }
-
-  function getSequenceOrder(trumpInfo) {
-    return BASE_ORDER.filter(r => r !== trumpInfo.level);
   }
 
   // 挂到全局
