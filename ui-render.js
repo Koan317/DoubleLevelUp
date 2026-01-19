@@ -304,18 +304,18 @@ window.Render = (function () {
       return;
     }
     const pileRect = pile.getBoundingClientRect();
+    const gap = 18;
     let top = pileRect.top - tableRect.top + pileRect.height / 2;
     let left = pileRect.left - tableRect.left + pileRect.width / 2;
-    const gap = 34;
 
     if (area === "north") {
-      top -= gap;
+      top = pileRect.top - tableRect.top - gap;
     } else if (area === "south") {
-      top += gap;
+      top = pileRect.bottom - tableRect.top + gap;
     } else if (area === "west") {
-      left -= gap;
+      left = pileRect.left - tableRect.left - gap;
     } else if (area === "east") {
-      left += gap;
+      left = pileRect.right - tableRect.left + gap;
     }
 
     badge.textContent = "庄";
