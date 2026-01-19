@@ -114,12 +114,16 @@ window.Render = (function () {
     el.classList.remove("hidden");
     el.innerHTML = "";
     const cardCount = state.kitty?.length || 8;
+    const stackRevealed = state.kittyRevealed && state.phase === "settle";
+    el.classList.toggle("kitty-stacked", stackRevealed);
     if (state.kittyRevealed) {
+      const faceupOffsetX = stackRevealed ? 2 : 6;
+      const faceupOffsetY = stackRevealed ? 2 : 2;
       state.kitty.forEach((card, index) => {
         const face = createCardElement(card);
         face.classList.add("kitty-faceup");
-        face.style.setProperty("--kitty-faceup-x", `${index * 6}px`);
-        face.style.setProperty("--kitty-faceup-y", `${index * 2}px`);
+        face.style.setProperty("--kitty-faceup-x", `${index * faceupOffsetX}px`);
+        face.style.setProperty("--kitty-faceup-y", `${index * faceupOffsetY}px`);
         el.appendChild(face);
       });
     } else {
