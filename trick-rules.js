@@ -162,18 +162,28 @@
   }
 
   function hasTractorToFollow(leadPattern, handCards, trumpInfo) {
+    if (leadPattern.isJokerTractor) {
+      const jokerCounts = handCards.reduce((acc, card) => {
+        if (card.suit === "JOKER") {
+          acc[card.rank] = (acc[card.rank] || 0) + 1;
+        }
+        return acc;
+      }, {});
+      return (jokerCounts.BJ ?? 0) >= 2 && (jokerCounts.SJ ?? 0) >= 2;
+    }
+
     const ranks = [];
 
     for (const c of handCards) {
       const p = Pattern.analyzePlay([c], trumpInfo);
       if (!sameSuitType(p, leadPattern)) continue;
-      ranks.push(p.mainRank);
+      ranks.push(parseGroupKey(p.mainRank).rank);
     }
 
     const count = {};
     ranks.forEach(r => count[r] = (count[r] || 0) + 1);
 
-    const order = Pattern.getSequenceOrder(trumpInfo);
+    const order = Pattern.getSequenceOrder(trumpInfo, leadPattern.suitType);
     const pairs = Object.keys(count)
       .filter(r => count[r] >= 2)
       .map(r => order.indexOf(r))
@@ -267,7 +277,8 @@
     pairsBySuit.forEach((ranks, suit) => {
       const tractors = Tractor.detectTractors(
         ranks.map(rank => ({ rank })),
-        trumpInfo.level
+        trumpInfo,
+        { suit }
       );
       tractors.forEach(sequence => {
         const tractorCards = [];
@@ -345,7 +356,8 @@
       for (const [suit, ranks] of pairsBySuit.entries()) {
         const tractors = Tractor.detectTractors(
           ranks.map(rank => ({ rank })),
-          trumpInfo.level
+          trumpInfo,
+          { suit }
         );
         for (const sequence of tractors) {
           if (sequence.length * 2 !== component.length) continue;
