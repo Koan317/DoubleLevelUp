@@ -67,6 +67,17 @@
       if (followPattern.length < leadPattern.length) {
         return illegal("拖拉机长度不足");
       }
+    } else if (matchingCount >= leadPattern.length &&
+        leadPattern.type === "tractor") {
+      const requiredPairs = Math.floor(leadPattern.length / 2);
+      const availablePairs = countPairsToFollow(leadPattern, matchingCards, trumpInfo);
+      if (availablePairs > 0) {
+        const followPairs = countPairsToFollow(leadPattern, followCards, trumpInfo);
+        const expectedPairs = Math.min(requiredPairs, availablePairs);
+        if (followPairs < expectedPairs) {
+          return illegal("无拖拉机需按数量跟对");
+        }
+      }
     }
 
     // 6️⃣ 甩牌：只要求“尽最大义务”
@@ -159,6 +170,17 @@
       if (map[key] >= 2) return true;
     }
     return false;
+  }
+
+  function countPairsToFollow(leadPattern, cards, trumpInfo) {
+    const map = {};
+    for (const c of cards) {
+      const p = Pattern.analyzePlay([c], trumpInfo);
+      if (!sameSuitType(p, leadPattern)) continue;
+      const key = p.mainRank;
+      map[key] = (map[key] || 0) + 1;
+    }
+    return Object.values(map).reduce((sum, count) => sum + Math.floor(count / 2), 0);
   }
 
   function hasTractorToFollow(leadPattern, handCards, trumpInfo) {
