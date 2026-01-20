@@ -917,7 +917,7 @@ window.Game = (function () {
     const sourceLabel = options.source || "操作";
     const playPattern = Pattern.analyzePlay(cards, state);
 
-    if (playPattern.type === "throw" && playPattern.isTrump) {
+    if (!leadPattern && playPattern.type === "throw" && playPattern.isTrump) {
       state.invalidActionReason = `${sourceLabel}不合法：主牌禁止甩牌`;
       Render.renderRuleMessage(state.invalidActionReason);
       return false;

@@ -69,7 +69,24 @@
 
   function canOverride(newR, oldR) {
     if (!oldR) return true;
-    return newR.power > oldR.power;
+    return revealRank(newR) > revealRank(oldR);
+  }
+
+  function revealRank(reveal) {
+    if (!reveal) return 0;
+    switch (reveal.type) {
+      case "DOUBLE_BJ":
+        return 4;
+      case "DOUBLE_SJ":
+        return 3;
+      case "ONE_WANG_TWO":
+        return 2;
+      case "ONE_WANG_ONE":
+      case "SINGLE_JOKER":
+        return 1;
+      default:
+        return reveal.power ?? 0;
+    }
   }
 
   window.Trump = {
