@@ -492,11 +492,17 @@
     border-radius: 12px;
     max-width: 90%;
     overflow: hidden;
+    --hand-card-overlap: -40px;
+    --hand-group-gap: 26px;
 }
 
 #hand .card {
-    margin-left: -40px;
+    margin-left: var(--hand-card-overlap);
     cursor: pointer;
+}
+
+#hand .card.hand-sub-start {
+    margin-left: calc(var(--hand-card-overlap) + var(--hand-group-gap));
 }
 
 #hand .card.deal {

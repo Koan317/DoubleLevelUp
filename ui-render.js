@@ -25,23 +25,32 @@ window.Render = (function () {
       });
     }
 
-    hand
+    const sortedHand = hand
       .slice()
-      .sort((a, b) => sortHandCards(a, b, state))
-      .forEach(card => {
-        const c = createCardElement(card);
-        if (animateDeal) {
-          c.classList.add("deal");
-          const dealIndex = dealIndexByCard.get(card) ?? 0;
-          c.style.animationDelay = `${dealIndex * 0.6}s`;
-          c.style.animationDuration = "0.6s";
-        }
-        if (selectedSet.has(card)) {
-          c.classList.add("selected");
-        }
-        c.onclick = () => onSelect(card);
-        el.appendChild(c);
-      });
+      .sort((a, b) => sortHandCards(a, b, state));
+    let previousTrump = null;
+
+    sortedHand.forEach(card => {
+      const c = createCardElement(card);
+      const isTrump = Rules.isTrump(card, state);
+      if (previousTrump === null) {
+        previousTrump = isTrump;
+      } else if (previousTrump && !isTrump) {
+        c.classList.add("hand-sub-start");
+        previousTrump = isTrump;
+      }
+      if (animateDeal) {
+        c.classList.add("deal");
+        const dealIndex = dealIndexByCard.get(card) ?? 0;
+        c.style.animationDelay = `${dealIndex * 0.6}s`;
+        c.style.animationDuration = "0.6s";
+      }
+      if (selectedSet.has(card)) {
+        c.classList.add("selected");
+      }
+      c.onclick = () => onSelect(card);
+      el.appendChild(c);
+    });
   }
 
   function renderTrick(trick, state, options = {}) {
