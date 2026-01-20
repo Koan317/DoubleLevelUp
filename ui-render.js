@@ -110,7 +110,8 @@ window.Render = (function () {
       e.innerHTML = "";
     });
 
-    const area = areas[state.trumpReveal.player];
+    const revealPlayer = state.lastTwistPlayer ?? state.trumpReveal.player;
+    const area = areas[revealPlayer];
     const el = document.querySelector(`.${area}`);
     if (!el) return;
     const revealCards = (state.trumpRevealCards || []).filter(card => card.suit !== "JOKER");

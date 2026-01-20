@@ -583,22 +583,13 @@ window.Game = (function () {
       overrideBanker: shouldOverrideBanker
     });
     state.pendingRevealKey = null;
-    state.phase = "twist";
-    if (!wasTwistPhase) {
-      autoRevealFromAI();
-    }
     if (wasTwistPhase) {
       handleTwistSuccess(0);
       return;
     }
-    state.selectedCards = [];
-    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      revealWindowOpen: state.revealWindowOpen,
-      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
-    });
-    Render.renderStatus(state);
-    Render.renderReveal(state);
+    clearRevealCountdown();
+    state.revealWindowOpen = false;
+    beginKittyPhase(state.trumpReveal?.player ?? 0);
   }
 
   function buildTrumpActions() {
