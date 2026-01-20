@@ -55,13 +55,14 @@ window.Render = (function () {
   }
 
   function renderTrick(trick, state, options = {}) {
-    document.querySelectorAll(".played").forEach(e => e.innerHTML = "");
+    document.querySelectorAll(".played-slot").forEach(e => e.innerHTML = "");
     const animatePlayer = options.animatePlayer ?? null;
     const lastPlay = trick[trick.length - 1];
 
     trick.forEach(t => {
       const area = ["south","west","north","east"][t.player];
-      const el = document.querySelector(`.${area}`);
+      const el = document.querySelector(`.played.${area} .played-slot`);
+      if (!el) return;
       const sortedCards = state ? t.cards.slice().sort((a, b) => sortHandCards(a, b, state)) : t.cards;
       sortedCards.forEach(card => {
         const c = createCardElement(card);
@@ -100,20 +101,20 @@ window.Render = (function () {
     const areas = ["south", "west", "north", "east"];
     if (!isRevealPhase || !state.trumpReveal) {
       if (!isRevealPhase) {
-        document.querySelectorAll(".played").forEach(e => {
+        document.querySelectorAll(".played-slot").forEach(e => {
           e.innerHTML = "";
         });
       }
       return;
     }
 
-    document.querySelectorAll(".played").forEach(e => {
+    document.querySelectorAll(".played-slot").forEach(e => {
       e.innerHTML = "";
     });
 
     const revealPlayer = state.lastTwistPlayer ?? state.trumpReveal.player;
     const area = areas[revealPlayer];
-    const el = document.querySelector(`.${area}`);
+    const el = document.querySelector(`.played.${area} .played-slot`);
     if (!el) return;
     const revealCards = (state.trumpRevealCards || []).filter(card => card.suit !== "JOKER");
     revealCards.forEach(card => {
