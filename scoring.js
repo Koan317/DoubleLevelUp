@@ -71,7 +71,6 @@
 
   window.Bottom = {
     settleBottom,
-    totalBottomScore,
     calcMultiplierByWinningPlay
   };
 

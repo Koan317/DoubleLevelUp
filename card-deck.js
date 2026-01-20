@@ -37,8 +37,6 @@ window.Cards = (function () {
   }
 
   return {
-    SUITS,
-    RANKS,
     createDeck,
     shuffle
   };
