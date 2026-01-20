@@ -21,10 +21,10 @@
    */
   function calcMultiplierByWinningPlay(pattern, level) {
     // 普通牌型
-    if (pattern.type === "single") return 1;
-    if (pattern.type === "pair") return 2;
+    if (pattern.type === "single") return 2;
+    if (pattern.type === "pair") return 4;
     if (pattern.type === "tractor") {
-      return Math.pow(2, pattern.length / 2);
+      return Math.pow(2, pattern.length / 2) * 2;
     }
 
     // 甩牌
@@ -36,7 +36,7 @@
       ranks.forEach(r => cnt[r] = (cnt[r] || 0) + 1);
       const pairRanks = Object.keys(cnt).filter(r => cnt[r] >= 2);
 
-      if (pairRanks.length === 0) return 1;
+      if (pairRanks.length === 0) return 2;
 
       // 判断拖拉机
       const tractors = Tractor.detectTractors(
@@ -44,13 +44,13 @@
         level
       );
 
-      if (!tractors.length) return 2;
+      if (!tractors.length) return 4;
 
       const maxPairs = Math.max(...tractors.map(t => t.length));
-      return Math.pow(2, maxPairs);
+      return Math.pow(2, maxPairs) * 2;
     }
 
-    return 1;
+    return 2;
   }
 
   /**

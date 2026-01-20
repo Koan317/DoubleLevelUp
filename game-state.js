@@ -512,6 +512,7 @@ window.Game = (function () {
       : Math.max(12, Math.floor(handLength * 0.55));
     const infoCost = candidate.reveal.power ?? 0;
     const weightedScore = plan.score - infoCost * 0.5;
+    if (plan.trumpCount <= 2) return null;
     const structureStrong = plan.trumpCount >= 5 &&
       (plan.highTrumpCount >= 2 || plan.trumpPairs >= 1);
     if (!structureStrong && !plan.lastTrickControl) return null;
@@ -765,6 +766,13 @@ window.Game = (function () {
     const hand = state.players[bankerIndex].slice();
     const kittySize = state.kitty.length;
     const plan = evaluateTrumpPlan(hand, state.trumpSuit);
+    const protectedRank = state.level === "A" ? "K" : null;
+    const isProtectedCard = card => {
+      if (Rules.isTrump(card, state)) return true;
+      if (card.rank === "A") return true;
+      if (protectedRank && card.rank === protectedRank) return true;
+      return false;
+    };
 
     const suits = ["♠", "♥", "♣", "♦"];
     const sideCounts = suits.reduce((acc, suit) => {
@@ -793,44 +801,64 @@ window.Game = (function () {
 
     const discard = [];
     let remaining = hand.slice();
+    const safeDiscardable = remaining.filter(card => !isProtectedCard(card));
+    const fallbackDiscardable = remaining.filter(card => !Rules.isTrump(card, state));
 
-    targetVoidSuits.forEach(suit => {
-      if (discard.length >= kittySize) return;
-      const suitCards = remaining.filter(card =>
-        !Rules.isTrump(card, state) && card.suit === suit
-      );
-      if (!suitCards.length) return;
-      if (discard.length + suitCards.length <= kittySize) {
-        discard.push(...suitCards);
-        remaining = remaining.filter(card => !suitCards.includes(card));
+    const sortByPowerAsc = cards => cards.slice().sort((a, b) =>
+      Rules.cardPower(a, state) - Rules.cardPower(b, state)
+    );
+    const sortByScoreDesc = cards => cards.slice().sort((a, b) =>
+      Score.cardScore(b) - Score.cardScore(a)
+    );
+    const takeFromPool = (pool, count) => sortByPowerAsc(pool).slice(0, count);
+
+    const tryVoidSuit = () => {
+      for (const suit of targetVoidSuits) {
+        const suitCards = safeDiscardable.filter(card => card.suit === suit);
+        if (!suitCards.length) continue;
+        const sortedSuit = sortByPowerAsc(suitCards);
+        const keepOne = sortedSuit.pop();
+        const candidate = sortedSuit.slice();
+        if (!candidate.length) continue;
+        if (candidate.length <= kittySize) {
+          const needed = kittySize - candidate.length;
+          let fillerPool = safeDiscardable.filter(card =>
+            !candidate.includes(card) && card !== keepOne
+          );
+          if (fillerPool.length < needed) {
+            fillerPool = fallbackDiscardable.filter(card =>
+              !candidate.includes(card) && card !== keepOne
+            );
+          }
+          candidate.push(...takeFromPool(fillerPool, needed));
+          if (candidate.length === kittySize) return candidate;
+        }
       }
-    });
+      return null;
+    };
 
-    if (discard.length < kittySize) {
-      const scored = remaining.map(card => {
-        let keepValue = 0;
-        const isJoker = card.suit === "JOKER";
-        const isTrump = Rules.isTrump(card, state);
-        const isLevel = card.rank === state.level;
-        const scoreValue = Score.cardScore(card);
-        const sideCount = !isTrump ? sideCounts[card.suit] : 0;
+    const chooseDiscardByPoints = preferPoints => {
+      const pool = safeDiscardable.length >= kittySize ? safeDiscardable : fallbackDiscardable;
+      if (!pool.length) return null;
+      const pointCards = pool.filter(card => Score.cardScore(card) > 0);
+      const nonPointCards = pool.filter(card => Score.cardScore(card) === 0);
+      const ordered = preferPoints
+        ? sortByScoreDesc(pointCards).concat(sortByPowerAsc(nonPointCards))
+        : sortByPowerAsc(nonPointCards).concat(sortByScoreDesc(pointCards));
+      return ordered.slice(0, kittySize);
+    };
 
-        if (isJoker) keepValue += 100;
-        if (isLevel) keepValue += 60;
-        if (isTrump) keepValue += 40;
-        if (trumpPairs.has(card)) keepValue += 25;
-        if (scoreValue > 0) {
-          keepValue += plan.lastTrickControl ? scoreValue : scoreValue * 2;
-        }
-        if (!isTrump && sideCount <= 2) {
-          keepValue -= 15;
-        }
-        return { card, keepValue };
-      });
-
-      scored.sort((a, b) => a.keepValue - b.keepValue);
-      const needed = kittySize - discard.length;
-      discard.push(...scored.slice(0, needed).map(item => item.card));
+    const voidSuitCandidate = tryVoidSuit();
+    if (voidSuitCandidate) {
+      discard.push(...voidSuitCandidate);
+    } else {
+      const preferPoints = plan.lastTrickControl;
+      const pointsCandidate = chooseDiscardByPoints(preferPoints);
+      if (pointsCandidate) {
+        discard.push(...pointsCandidate);
+      } else {
+        discard.push(...takeFromPool(fallbackDiscardable, kittySize));
+      }
     }
 
     state.players[bankerIndex] = state.players[bankerIndex]
