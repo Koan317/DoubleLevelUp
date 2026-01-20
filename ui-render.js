@@ -499,6 +499,12 @@ window.Render = (function () {
     slot.appendChild(proof);
   }
 
+  function clearKittyOwnerProof() {
+    document.querySelectorAll(".kitty-proof-slot").forEach(slot => {
+      slot.remove();
+    });
+  }
+
   function showPileModal(playerIndex, state) {
     const modal = document.getElementById("pile-modal");
     const body = modal?.querySelector(".pile-modal-body");
@@ -588,6 +594,7 @@ window.Render = (function () {
     renderKittyMultiplier,
     renderTrickPiles,
     renderKittyOwnerProof,
+    clearKittyOwnerProof,
     showPileModal,
     hidePileModal,
     bindPileModalHandlers,

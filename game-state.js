@@ -123,6 +123,7 @@ window.Game = (function () {
     state.phase = "kitty";
     state.revealWindowOpen = false;
     state.kittyRevealCard = null;
+    Render.clearKittyOwnerProof();
     clearRevealCountdown();
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       allowPendingReveal: false
@@ -334,6 +335,7 @@ window.Game = (function () {
     Render.setNextRoundButtonVisible(false);
     Render.bindPileModalHandlers();
     Render.hidePileModal();
+    Render.clearKittyOwnerProof();
     clearRevealCountdown();
     Render.renderKitty(state);
     Render.renderKittyMultiplier(state.kittyMultiplier, false);
