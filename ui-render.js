@@ -170,13 +170,16 @@ window.Render = (function () {
       ? options.revealWindowOpen
       : (phase === "reveal" || phase === "twist" || phase === "dealing");
     const allowPendingReveal = options.allowPendingReveal ?? phase === "dealing";
+    const visibleActions = phase === "reveal"
+      ? actions.filter(action => isSuitKey(action.key))
+      : actions;
     el.classList.toggle("hidden", !shouldShow);
     if (!shouldShow) return;
 
     const existingButtons = el._actionButtons || new Map();
-    const actionKeys = new Set(actions.map(action => action.key));
+    const actionKeys = new Set(visibleActions.map(action => action.key));
 
-    actions.forEach(action => {
+    visibleActions.forEach(action => {
       let button = existingButtons.get(action.key);
       if (!button) {
         button = document.createElement("button");

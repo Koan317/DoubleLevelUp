@@ -36,6 +36,7 @@ window.Game = (function () {
     trickIndex: 0,
     playedCards: [],
     kittyRevealInProgress: false,
+    twistDisabled: false,
   };
 
   let revealCountdownTimer = null;
@@ -143,7 +144,7 @@ window.Game = (function () {
       }
       autoDiscardKittyForAI(recipientIndex);
       Render.animateKittyReturn(() => {
-        startTwistPhase();
+        proceedAfterKitty();
       });
     }, { keepAtTarget: true });
   }
@@ -198,6 +199,12 @@ window.Game = (function () {
   }
 
   function startTwistPhase() {
+    if (state.twistDisabled) {
+      state.revealWindowOpen = false;
+      clearRevealCountdown();
+      startPlayFromBanker();
+      return;
+    }
     state.phase = "twist";
     Render.setPlayButtonVisible(false);
     const eligiblePlayers = getTwistEligiblePlayers();
@@ -306,6 +313,7 @@ window.Game = (function () {
     state.trickIndex = 0;
     state.playedCards = [];
     state.kittyRevealInProgress = false;
+    state.twistDisabled = false;
     const hasPresetBanker = state.nextBankerIndex !== null && state.nextBankerIndex !== undefined;
     state.phase = hasPresetBanker ? "reveal" : "dealing";
     state.score = 0;
@@ -673,6 +681,9 @@ window.Game = (function () {
     state.trumpSuit = reveal.trumpSuit;
     state.trumpReveal = { player: bankerIndex, reveal };
     state.trumpRevealCards = cards;
+    if (reveal?.type === "KITTY_MATCH") {
+      state.twistDisabled = true;
+    }
     state.bankerTeam = bankerIndex % 2 === 0 ? [0, 2] : [1, 3];
     state.scoreTeam = bankerIndex % 2 === 0 ? [1, 3] : [0, 2];
     state.lastTwistPlayer = playerIndex;
@@ -701,6 +712,14 @@ window.Game = (function () {
     Render.renderKitty(state);
   }
 
+  function proceedAfterKitty() {
+    if (state.twistDisabled) {
+      startPlayFromBanker();
+      return;
+    }
+    startTwistPhase();
+  }
+
   function handleHumanKittyDiscard() {
     if (!state.kitty.length) return;
     if (state.selectedCards.length !== state.kitty.length) {
@@ -717,7 +736,7 @@ window.Game = (function () {
     Render.renderRuleMessage(null);
     Render.setPlayButtonEnabled(false);
     Render.animateKittyReturn(() => {
-      startTwistPhase();
+      proceedAfterKitty();
     });
   }
 
