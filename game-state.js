@@ -144,6 +144,7 @@ window.Game = (function () {
     state.phase = "kitty";
     state.revealWindowOpen = false;
     state.kittyRevealCard = null;
+    state.kittyVisible = true;
     Render.clearKittyOwnerProof();
     clearRevealCountdown();
     renderTrumpActionsWith({ allowPendingReveal: false });
@@ -698,6 +699,9 @@ window.Game = (function () {
     state.trumpSuit = reveal.trumpSuit;
     state.trumpReveal = { player: bankerIndex, reveal };
     state.level = getTeamLevel(getTeamKeyByPlayer(bankerIndex));
+    if (state.level === "王") {
+      state.trumpSuit = null;
+    }
     state.trumpRevealCards = cards;
     if (state.kittyRevealCard) {
       state.kittyRevealCard = null;
