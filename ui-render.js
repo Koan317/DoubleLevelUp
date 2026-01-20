@@ -212,8 +212,8 @@ window.Render = (function () {
   function sortHandCards(a, b, state) {
     const suitDiff = suitOrder(a, state) - suitOrder(b, state);
     if (suitDiff !== 0) return suitDiff;
-    const powerDiff = Rules.cardPower(b, state) - Rules.cardPower(a, state);
-    if (powerDiff !== 0) return powerDiff;
+    const rankDiff = cardSortIndex(a, state) - cardSortIndex(b, state);
+    if (rankDiff !== 0) return rankDiff;
     return Rules.rankValue(b.rank) - Rules.rankValue(a.rank);
   }
 
@@ -222,6 +222,25 @@ window.Render = (function () {
     const order = ["♠", "♥", "♣", "♦"];
     const index = order.indexOf(card.suit);
     return index === -1 ? order.length + 1 : index + 1;
+  }
+
+  function cardSortIndex(card, state) {
+    const descendingRanks = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
+
+    if (Rules.isTrump(card, state)) {
+      if (card.suit === "JOKER") {
+        return card.rank === "BJ" ? 0 : 1;
+      }
+      if (card.rank === state.level) {
+        return card.suit === state.trumpSuit ? 2 : 3;
+      }
+      const filtered = descendingRanks.filter(rank => rank !== state.level);
+      const index = filtered.indexOf(card.rank);
+      return index === -1 ? filtered.length + 4 : index + 4;
+    }
+
+    const index = descendingRanks.indexOf(card.rank);
+    return index === -1 ? descendingRanks.length + 1 : index;
   }
 
   function createCardElement(card) {
