@@ -121,6 +121,7 @@ window.Game = (function () {
     if (!state.trumpReveal) return;
     state.phase = "kitty";
     state.revealWindowOpen = false;
+    state.kittyRevealCard = null;
     clearRevealCountdown();
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       allowPendingReveal: false
@@ -189,10 +190,7 @@ window.Game = (function () {
         if (state.trumpReveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) {
           return;
         }
-        const shouldOverrideBanker = state.kittyOwner !== null && state.kittyOwner !== undefined;
-        applyReveal(candidate.reveal, playerIndex, candidate.cards || [], {
-          overrideBanker: shouldOverrideBanker
-        });
+        applyReveal(candidate.reveal, playerIndex, candidate.cards || []);
         handleTwistSuccess(playerIndex);
       }, delay);
       twistWindowTimers.push(timer);
@@ -574,10 +572,7 @@ window.Game = (function () {
     if (state.trumpReveal && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
       return;
     }
-    const shouldOverrideBanker = wasTwistPhase && state.kittyOwner !== null && state.kittyOwner !== undefined;
-    applyReveal(reveal, 0, revealCards, {
-      overrideBanker: shouldOverrideBanker
-    });
+    applyReveal(reveal, 0, revealCards);
     state.pendingRevealKey = null;
     if (wasTwistPhase) {
       handleTwistSuccess(0);
@@ -682,6 +677,7 @@ window.Game = (function () {
     state.scoreTeam = bankerIndex % 2 === 0 ? [1, 3] : [0, 2];
     state.lastTwistPlayer = playerIndex;
     state.lastTwistReveal = reveal;
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
   }
 
   function grantKittyToPlayer(playerIndex) {
@@ -920,6 +916,12 @@ window.Game = (function () {
     const leadPattern = state.currentTrick[0]?.pattern || null;
     const sourceLabel = options.source || "操作";
     const playPattern = Pattern.analyzePlay(cards, state);
+
+    if (playPattern.type === "throw" && playPattern.isTrump) {
+      state.invalidActionReason = `${sourceLabel}不合法：主牌禁止甩牌`;
+      Render.renderRuleMessage(state.invalidActionReason);
+      return false;
+    }
 
     // 首家禁止混合花色出牌
     if (!leadPattern && playPattern.isMixedSuit) {
