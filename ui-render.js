@@ -15,7 +15,6 @@ window.Render = (function () {
     const el = document.getElementById("hand");
     if (!el) return;
     el.innerHTML = "";
-    el.classList.toggle("dealing", state.phase === "dealing");
     const selectedSet = new Set(selectedCards);
     const { animateDeal = false } = options;
     const dealIndexByCard = new Map();
