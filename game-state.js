@@ -440,9 +440,79 @@ window.Game = (function () {
     }
   }
 
+  function evaluateTrumpPlan(hand, trumpSuit) {
+    const trumpInfo = { ...state, trumpSuit };
+    const trumpCards = hand.filter(card => Rules.isTrump(card, trumpInfo));
+    const jokerCount = hand.filter(card => card.suit === "JOKER").length;
+    const levelCount = hand.filter(card => card.rank === state.level).length;
+    const highTrumpCount = trumpCards.filter(card => Rules.cardPower(card, trumpInfo) >= 80).length;
+
+    const groups = {};
+    trumpCards.forEach(card => {
+      const key = `trump-${card.rank}`;
+      groups[key] ??= [];
+      groups[key].push(card);
+    });
+    const trumpPairs = Object.values(groups).filter(group => group.length >= 2);
+    const pairRanks = trumpPairs.map(group => ({ rank: group[0].rank }));
+    const tractors = Tractor.detectTractors(pairRanks, trumpInfo, { suitType: "trump" });
+
+    const suits = ["♠", "♥", "♣", "♦"];
+    const sideCounts = suits.reduce((acc, suit) => {
+      acc[suit] = hand.filter(card =>
+        !Rules.isTrump(card, trumpInfo) && card.suit === suit
+      ).length;
+      return acc;
+    }, {});
+    const voidCount = suits.filter(suit => sideCounts[suit] === 0).length;
+    const shortSideCount = suits.filter(suit => sideCounts[suit] > 0 && sideCounts[suit] <= 2).length;
+
+    const maxTractorLength = tractors.length
+      ? Math.max(...tractors.map(sequence => sequence.length))
+      : 0;
+    const lastTrickControl = highTrumpCount >= 3 || jokerCount >= 2 || maxTractorLength >= 2;
+
+    const score = trumpCards.length * 2 +
+      highTrumpCount * 2 +
+      jokerCount * 4 +
+      levelCount * 3 +
+      trumpPairs.length * 2 +
+      maxTractorLength * 3 +
+      voidCount * 2 -
+      shortSideCount;
+
+    return {
+      trumpCount: trumpCards.length,
+      jokerCount,
+      levelCount,
+      highTrumpCount,
+      trumpPairs: trumpPairs.length,
+      maxTractorLength,
+      voidCount,
+      shortSideCount,
+      lastTrickControl,
+      score
+    };
+  }
+
+  function shouldAiReveal(hand, candidate, currentReveal) {
+    const plan = evaluateTrumpPlan(hand, candidate.reveal.trumpSuit ?? null);
+    const handLength = hand.length || 1;
+    const isTwist = Boolean(currentReveal);
+    const threshold = isTwist
+      ? Math.max(16, Math.floor(handLength * 0.7))
+      : Math.max(12, Math.floor(handLength * 0.55));
+    const infoCost = candidate.reveal.power ?? 0;
+    const weightedScore = plan.score - infoCost * 0.5;
+    const structureStrong = plan.trumpCount >= 5 &&
+      (plan.highTrumpCount >= 2 || plan.trumpPairs >= 1);
+    if (!structureStrong && !plan.lastTrickControl) return null;
+    if (weightedScore < threshold) return null;
+    return { ...plan, weightedScore };
+  }
+
   function autoRevealFromAI() {
     let best = state.trumpReveal;
-    const allowOverride = true;
     const revealOptions = getRevealOptions();
 
     state.players.forEach((hand, index) => {
@@ -452,17 +522,30 @@ window.Game = (function () {
         if (!aiRevealAllowed(candidate, revealOptions)) return;
         if (!canTwistByPlayer(index, candidate.reveal)) return;
         if (state.trumpReveal && state.trumpReveal.player === index) return;
-        if (!best || (allowOverride && Trump.canOverride(candidate.reveal, best.reveal))) {
-          best = {
-            player: index,
-            cards: candidate.cards,
-            reveal: candidate.reveal
-          };
+        if (state.trumpReveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) return;
+        const plan = shouldAiReveal(hand, candidate, state.trumpReveal?.reveal);
+        if (!plan) return;
+        if (!best || !best.reveal) {
+          best = { player: index, cards: candidate.cards, reveal: candidate.reveal, plan };
+          return;
+        }
+        const bestPlan = best.plan ?? shouldAiReveal(
+          state.players[best.player],
+          best,
+          state.trumpReveal?.reveal
+        );
+        if (!bestPlan || plan.weightedScore > bestPlan.weightedScore + 1) {
+          best = { player: index, cards: candidate.cards, reveal: candidate.reveal, plan };
+          return;
+        }
+        if (Math.abs(plan.weightedScore - bestPlan.weightedScore) <= 1 &&
+            (candidate.reveal.power ?? 0) < (best.reveal.power ?? 0)) {
+          best = { player: index, cards: candidate.cards, reveal: candidate.reveal, plan };
         }
       });
     });
 
-    if (best && best !== state.trumpReveal) {
+    if (best && best.reveal && best !== state.trumpReveal) {
       applyReveal(best.reveal, best.player, best.cards || []);
       state.phase = "twist";
     }
@@ -724,14 +807,77 @@ window.Game = (function () {
 
   function autoDiscardKittyForAI(bankerIndex) {
     if (!state.kitty.length) return;
-    const sorted = state.players[bankerIndex]
-      .slice()
-      .sort((a, b) => {
-        const powerDiff = Rules.cardPower(a, state) - Rules.cardPower(b, state);
-        if (powerDiff !== 0) return powerDiff;
-        return Rules.rankValue(a.rank) - Rules.rankValue(b.rank);
+    const hand = state.players[bankerIndex].slice();
+    const kittySize = state.kitty.length;
+    const plan = evaluateTrumpPlan(hand, state.trumpSuit);
+
+    const suits = ["♠", "♥", "♣", "♦"];
+    const sideCounts = suits.reduce((acc, suit) => {
+      acc[suit] = hand.filter(card =>
+        !Rules.isTrump(card, state) && card.suit === suit
+      ).length;
+      return acc;
+    }, {});
+    const targetVoidSuits = suits
+      .filter(suit => sideCounts[suit] > 0)
+      .sort((a, b) => sideCounts[a] - sideCounts[b]);
+
+    const trumpGroups = {};
+    hand.forEach(card => {
+      const key = Rules.isTrump(card, state) ? `trump-${card.rank}` : `${card.suit}-${card.rank}`;
+      trumpGroups[key] ??= [];
+      trumpGroups[key].push(card);
+    });
+    const trumpPairs = new Set();
+    Object.keys(trumpGroups).forEach(key => {
+      if (!key.startsWith("trump-")) return;
+      if (trumpGroups[key].length >= 2) {
+        trumpGroups[key].forEach(card => trumpPairs.add(card));
+      }
+    });
+
+    const discard = [];
+    let remaining = hand.slice();
+
+    targetVoidSuits.forEach(suit => {
+      if (discard.length >= kittySize) return;
+      const suitCards = remaining.filter(card =>
+        !Rules.isTrump(card, state) && card.suit === suit
+      );
+      if (!suitCards.length) return;
+      if (discard.length + suitCards.length <= kittySize) {
+        discard.push(...suitCards);
+        remaining = remaining.filter(card => !suitCards.includes(card));
+      }
+    });
+
+    if (discard.length < kittySize) {
+      const scored = remaining.map(card => {
+        let keepValue = 0;
+        const isJoker = card.suit === "JOKER";
+        const isTrump = Rules.isTrump(card, state);
+        const isLevel = card.rank === state.level;
+        const scoreValue = Score.cardScore(card);
+        const sideCount = !isTrump ? sideCounts[card.suit] : 0;
+
+        if (isJoker) keepValue += 100;
+        if (isLevel) keepValue += 60;
+        if (isTrump) keepValue += 40;
+        if (trumpPairs.has(card)) keepValue += 25;
+        if (scoreValue > 0) {
+          keepValue += plan.lastTrickControl ? scoreValue : scoreValue * 2;
+        }
+        if (!isTrump && sideCount <= 2) {
+          keepValue -= 15;
+        }
+        return { card, keepValue };
       });
-    const discard = sorted.slice(0, state.kitty.length);
+
+      scored.sort((a, b) => a.keepValue - b.keepValue);
+      const needed = kittySize - discard.length;
+      discard.push(...scored.slice(0, needed).map(item => item.card));
+    }
+
     state.players[bankerIndex] = state.players[bankerIndex]
       .filter(card => !discard.includes(card));
     state.kitty = discard;
