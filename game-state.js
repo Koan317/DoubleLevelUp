@@ -681,6 +681,10 @@ window.Game = (function () {
     state.trumpSuit = reveal.trumpSuit;
     state.trumpReveal = { player: bankerIndex, reveal };
     state.trumpRevealCards = cards;
+    if (state.kittyRevealCard) {
+      state.kittyRevealCard = null;
+      Render.renderKitty(state);
+    }
     if (reveal?.type === "KITTY_MATCH") {
       state.twistDisabled = true;
     }
