@@ -39,6 +39,7 @@ window.Game = (function () {
   };
 
   let revealCountdownTimer = null;
+  let twistWindowTimers = [];
   const playerLabels = ["南家", "西家", "北家", "东家"];
   const STORAGE_KEY = "doublelevelup-levels";
 
@@ -65,7 +66,8 @@ window.Game = (function () {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         snLevel: state.bankerLevel,
-        weLevel: state.scoreLevel
+        weLevel: state.scoreLevel,
+        nextBankerIndex: state.nextBankerIndex ?? null
       }));
     } catch (error) {
       // ignore storage errors
@@ -81,9 +83,9 @@ window.Game = (function () {
     Render.renderCountdown(null);
   }
 
-  function startRevealCountdown(onComplete) {
+  function startRevealCountdown(onComplete, durationSeconds = 6) {
     clearRevealCountdown();
-    state.revealCountdown = 5;
+    state.revealCountdown = durationSeconds;
     Render.renderCountdown(state.revealCountdown);
     const tick = () => {
       if (state.revealCountdown === null) return;
@@ -146,26 +148,84 @@ window.Game = (function () {
     }, { keepAtTarget: true });
   }
 
-  function canHumanTwist() {
-    const actions = buildTrumpActions();
-    return actions.some(action => action.enabled);
+  function getTwistEligiblePlayers() {
+    const excluded = state.kittyOwner;
+    return [0, 1, 2, 3].filter(index => index !== excluded);
+  }
+
+  function getTwistCandidateForPlayer(playerIndex) {
+    const hand = state.players[playerIndex] || [];
+    const revealOptions = getRevealOptions("twist");
+    const candidates = findRevealsForHand(hand, revealOptions)
+      .filter(candidate => candidate.reveal && canTwistByPlayer(playerIndex, candidate.reveal))
+      .sort((a, b) => a.reveal.power - b.reveal.power);
+    if (!candidates.length) return null;
+    if (!state.trumpReveal?.reveal) return candidates[0];
+    return candidates.find(candidate =>
+      Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)
+    ) || null;
+  }
+
+  function clearTwistWindowTimers() {
+    twistWindowTimers.forEach(timer => clearTimeout(timer));
+    twistWindowTimers = [];
+  }
+
+  function handleTwistSuccess(playerIndex) {
+    clearRevealCountdown();
+    clearTwistWindowTimers();
+    state.revealWindowOpen = false;
+    beginKittyPhase(playerIndex);
+  }
+
+  function scheduleAiTwist(twistCandidates) {
+    clearTwistWindowTimers();
+    twistCandidates.forEach(({ playerIndex }) => {
+      const delay = 500 + Math.random() * 4500;
+      const timer = setTimeout(() => {
+        if (state.phase !== "twist") return;
+        if (!state.revealCountdown && state.revealCountdown !== 0) return;
+        const candidate = getTwistCandidateForPlayer(playerIndex);
+        if (!candidate?.reveal) return;
+        if (state.trumpReveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) {
+          return;
+        }
+        const shouldOverrideBanker = state.kittyOwner !== null && state.kittyOwner !== undefined;
+        applyReveal(candidate.reveal, playerIndex, candidate.cards || [], {
+          overrideBanker: shouldOverrideBanker
+        });
+        handleTwistSuccess(playerIndex);
+      }, delay);
+      twistWindowTimers.push(timer);
+    });
   }
 
   function startTwistPhase() {
     state.phase = "twist";
     Render.setPlayButtonVisible(false);
-    if (canHumanTwist()) {
-      state.revealWindowOpen = true;
-      startRevealCountdown(() => {
-        endTwistPhase();
-      });
-    } else {
+    const eligiblePlayers = getTwistEligiblePlayers();
+    const twistCandidates = eligiblePlayers
+      .map(playerIndex => ({
+        playerIndex,
+        candidate: getTwistCandidateForPlayer(playerIndex)
+      }))
+      .filter(entry => entry.candidate);
+    const humanCanTwist = twistCandidates.some(entry => entry.playerIndex === 0);
+
+    if (!twistCandidates.length) {
       state.revealWindowOpen = false;
       clearRevealCountdown();
       setTimeout(() => {
         endTwistPhase();
-      }, 1000);
+      }, 200);
+    } else {
+      state.revealWindowOpen = humanCanTwist;
+      startRevealCountdown(() => {
+        endTwistPhase();
+      }, 6);
+      scheduleAiTwist(twistCandidates.filter(entry => entry.playerIndex !== 0));
     }
+
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: false
@@ -176,6 +236,7 @@ window.Game = (function () {
   function endTwistPhase() {
     state.revealWindowOpen = false;
     clearRevealCountdown();
+    clearTwistWindowTimers();
     startPlayFromBanker();
   }
 
@@ -204,7 +265,14 @@ window.Game = (function () {
       if (savedLevels) {
         state.bankerLevel = savedLevels.snLevel;
         state.scoreLevel = savedLevels.weLevel;
-        state.level = savedLevels.snLevel;
+        if (savedLevels.nextBankerIndex !== null && savedLevels.nextBankerIndex !== undefined) {
+          state.nextBankerIndex = savedLevels.nextBankerIndex;
+        }
+        if (state.nextBankerIndex !== null && state.nextBankerIndex !== undefined) {
+          state.level = getTeamLevel(getTeamKeyByPlayer(state.nextBankerIndex));
+        } else {
+          state.level = savedLevels.snLevel;
+        }
       } else if (!state.bankerLevel || !state.scoreLevel) {
         state.bankerLevel = state.level;
         state.scoreLevel = state.level;
@@ -226,7 +294,7 @@ window.Game = (function () {
     state.trumpRevealCards = [];
     state.pendingRevealKey = null;
     state.revealCountdown = null;
-    state.revealWindowOpen = isFirstRound;
+    state.revealWindowOpen = false;
     state.kittyVisible = false;
     state.kittyRevealCard = null;
     state.kittyOwner = null;
@@ -242,15 +310,15 @@ window.Game = (function () {
     state.trickIndex = 0;
     state.playedCards = [];
     state.kittyRevealInProgress = false;
-    state.phase = isFirstRound ? "dealing" : "reveal";
+    const hasPresetBanker = state.nextBankerIndex !== null && state.nextBankerIndex !== undefined;
+    state.phase = hasPresetBanker ? "reveal" : "dealing";
     state.score = 0;
 
-    if (!isFirstRound && state.nextBankerIndex !== null && state.nextBankerIndex !== undefined) {
+    if (state.nextBankerIndex !== null && state.nextBankerIndex !== undefined) {
       const bankerIndex = state.nextBankerIndex;
       state.trumpReveal = { player: bankerIndex, reveal: null };
       state.bankerTeam = bankerIndex % 2 === 0 ? [0, 2] : [1, 3];
       state.scoreTeam = bankerIndex % 2 === 0 ? [1, 3] : [0, 2];
-      state.revealWindowOpen = true;
     }
 
     state.selectedCards = [];
@@ -318,7 +386,7 @@ window.Game = (function () {
       Render.renderReveal(state);
     };
 
-    if (isFirstRound) {
+    if (!hasPresetBanker) {
       let dealIndex = 0;
       const dealNext = () => {
         if (dealIndex >= dealCards.length) {
@@ -340,7 +408,6 @@ window.Game = (function () {
         });
         Render.renderStatus(state);
         Render.renderReveal(state);
-        attemptAutoRevealDuringDeal(playerIndex);
         dealIndex += 1;
         setTimeout(dealNext, 150);
       };
@@ -490,7 +557,7 @@ window.Game = (function () {
   }
 
   function onHumanReveal(key) {
-    if (state.phase !== "reveal" && state.phase !== "twist" && state.phase !== "dealing") return;
+    if (state.phase !== "reveal" && state.phase !== "twist") return;
     if (!state.revealWindowOpen) return;
     const wasTwistPhase = state.phase === "twist";
     let candidate = null;
@@ -501,9 +568,6 @@ window.Game = (function () {
       candidate = findHumanReveal(key);
     }
     if (!candidate?.reveal) {
-      if (state.phase === "dealing" && isFirstRound() && !state.trumpReveal) {
-        state.pendingRevealKey = key;
-      }
       return;
     }
     const { reveal, cards: revealCards = [] } = candidate;
@@ -514,15 +578,17 @@ window.Game = (function () {
     if (state.trumpReveal && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
       return;
     }
-    const shouldLockDealing = state.phase === "dealing";
-    applyReveal(reveal, 0, revealCards);
+    const shouldOverrideBanker = wasTwistPhase && state.kittyOwner !== null && state.kittyOwner !== undefined;
+    applyReveal(reveal, 0, revealCards, {
+      overrideBanker: shouldOverrideBanker
+    });
     state.pendingRevealKey = null;
-    state.phase = shouldLockDealing ? "dealing" : "twist";
-    if (!shouldLockDealing) {
+    state.phase = "twist";
+    if (!wasTwistPhase) {
       autoRevealFromAI();
     }
     if (wasTwistPhase) {
-      beginKittyPhase(0);
+      handleTwistSuccess(0);
       return;
     }
     state.selectedCards = [];
@@ -619,8 +685,9 @@ window.Game = (function () {
     return sorted.find(candidate => Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) || null;
   }
 
-  function applyReveal(reveal, playerIndex, cards = []) {
-    const bankerIndex = state.trumpReveal?.player ?? playerIndex;
+  function applyReveal(reveal, playerIndex, cards = [], options = {}) {
+    const overrideBanker = options.overrideBanker ?? false;
+    const bankerIndex = overrideBanker ? playerIndex : (state.trumpReveal?.player ?? playerIndex);
     state.trumpSuit = reveal.trumpSuit;
     state.trumpReveal = { player: bankerIndex, reveal };
     state.trumpRevealCards = cards;
@@ -744,29 +811,6 @@ window.Game = (function () {
     }
     if (state.lastTwistPlayer !== playerIndex) return true;
     return isOneWangUpgrade(state.lastTwistReveal, reveal);
-  }
-
-  function attemptAutoRevealDuringDeal(playerIndex) {
-    if (!isFirstRound()) return;
-    if (state.trumpSuit) return;
-    if (playerIndex === 0) return;
-    const hand = state.players[playerIndex];
-    const revealOptions = getRevealOptions("dealing");
-    const reveal = findRevealsForHand(hand, revealOptions)
-      .find(candidate =>
-        candidate?.reveal &&
-        aiRevealAllowed(candidate, revealOptions) &&
-        canTwistByPlayer(playerIndex, candidate.reveal)
-      );
-    if (!reveal?.reveal) return;
-    applyReveal(reveal.reveal, playerIndex, reveal.cards || []);
-    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      revealWindowOpen: state.revealWindowOpen,
-      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
-    });
-    Render.renderStatus(state);
-    Render.renderReveal(state);
   }
 
   function resolveKittyReveal() {
