@@ -470,10 +470,16 @@ window.Render = (function () {
     const area = ["south","west","north","east"][playerIndex];
     const el = document.querySelector(`.${area}`);
     if (!el) return;
-    el.innerHTML = "";
+    let slot = el.querySelector(".kitty-proof-slot");
+    if (!slot) {
+      slot = document.createElement("div");
+      slot.className = "kitty-proof-slot";
+      el.appendChild(slot);
+    }
+    slot.innerHTML = "";
     const proof = createCardElement(card);
     proof.classList.add("kitty-proof");
-    el.appendChild(proof);
+    slot.appendChild(proof);
   }
 
   function showPileModal(playerIndex, state) {
