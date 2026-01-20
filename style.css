@@ -172,6 +172,15 @@
     z-index: 4;
 }
 
+#kitty.kitty-stacked {
+    width: auto;
+    height: auto;
+    max-width: 90%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
 #kitty.hidden {
     display: none;
 }
@@ -275,9 +284,15 @@
 }
 
 #kitty.kitty-stacked .kitty-faceup {
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) translate(var(--kitty-faceup-x, 0px), var(--kitty-faceup-y, 0px));
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    margin-left: -40px;
+}
+
+#kitty.kitty-stacked .kitty-faceup:first-child {
+    margin-left: 0;
 }
 #hand-actions {
     position: absolute;
