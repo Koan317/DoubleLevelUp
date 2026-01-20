@@ -808,6 +808,7 @@ window.Game = (function () {
       revealWindowOpen: false,
       allowPendingReveal: false
     });
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
     let revealIndex = 0;
     const revealNext = () => {
       if (revealIndex >= state.kitty.length) {
@@ -819,6 +820,7 @@ window.Game = (function () {
       Render.renderKitty(state);
       Render.renderStatus(state);
       Render.renderReveal(state);
+      Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
       const ownerIndex = state.players.findIndex(hand =>
         hand.some(h => h.suit === card.suit && h.rank === card.rank)
       );
