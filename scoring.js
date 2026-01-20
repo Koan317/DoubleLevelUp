@@ -66,7 +66,7 @@
 
     const base = totalBottomScore(bottomCards);
     const mult = calcMultiplierByWinningPlay(winningPattern, level);
-    return base * mult;
+    return base * mult * 2;
   }
 
   window.Bottom = {
