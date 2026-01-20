@@ -118,16 +118,36 @@ window.Game = (function () {
     };
   }
 
+  function getBankerTeamLevel() {
+    if (state.trumpReveal?.player !== null && state.trumpReveal?.player !== undefined) {
+      return getTeamLevel(getTeamKeyByPlayer(state.trumpReveal.player));
+    }
+    if (state.nextBankerIndex !== null && state.nextBankerIndex !== undefined) {
+      return getTeamLevel(getTeamKeyByPlayer(state.nextBankerIndex));
+    }
+    return null;
+  }
+
+  function shouldRevealJokersOnly() {
+    return state.phase === "reveal" && getBankerTeamLevel() === "王";
+  }
+
+  function renderTrumpActionsWith(options = {}) {
+    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      revealOnlyJokers: shouldRevealJokersOnly(),
+      ...options
+    });
+  }
+
   function beginKittyPhase(recipientIndex = (state.trumpReveal?.player ?? 0)) {
     if (!state.trumpReveal) return;
     state.phase = "kitty";
     state.revealWindowOpen = false;
     state.kittyRevealCard = null;
+    state.kittyVisible = true;
     Render.clearKittyOwnerProof();
     clearRevealCountdown();
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      allowPendingReveal: false
-    });
+    renderTrumpActionsWith({ allowPendingReveal: false });
     state.kittyOwner = recipientIndex;
     Render.renderKitty(state);
     Render.renderStatus(state);
@@ -231,7 +251,7 @@ window.Game = (function () {
       scheduleAiTwist(twistCandidates.filter(entry => entry.playerIndex !== 0));
     }
 
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+    renderTrumpActionsWith({
       revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: false
     });
@@ -251,9 +271,7 @@ window.Game = (function () {
     Render.setPlayButtonLabel("出牌");
     Render.setPlayButtonVisible(true);
     Render.setPlayButtonEnabled(state.turn === 0);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      allowPendingReveal: false
-    });
+    renderTrumpActionsWith({ allowPendingReveal: false });
     Render.renderReveal(state);
     Render.renderStatus(state);
     if (state.turn !== 0) {
@@ -339,9 +357,7 @@ window.Game = (function () {
     clearRevealCountdown();
     Render.renderKitty(state);
     Render.renderKittyMultiplier(state.kittyMultiplier, false);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
-    });
+    renderTrumpActionsWith({ allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen });
     Render.renderStatus(state);
     Render.renderReveal(state);
     Render.renderTrickPiles(state, onPileClick);
@@ -360,7 +376,7 @@ window.Game = (function () {
         tryPendingReveal();
         state.revealWindowOpen = false;
         Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-        Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+        renderTrumpActionsWith({
           revealWindowOpen: state.revealWindowOpen,
           allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
         });
@@ -383,7 +399,7 @@ window.Game = (function () {
       }
 
       Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      renderTrumpActionsWith({
         revealWindowOpen: state.revealWindowOpen,
         allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
       });
@@ -407,7 +423,7 @@ window.Game = (function () {
           });
           tryPendingReveal();
         }
-        Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+        renderTrumpActionsWith({
           allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
         });
         Render.renderStatus(state);
@@ -683,6 +699,9 @@ window.Game = (function () {
     state.trumpSuit = reveal.trumpSuit;
     state.trumpReveal = { player: bankerIndex, reveal };
     state.level = getTeamLevel(getTeamKeyByPlayer(bankerIndex));
+    if (state.level === "王") {
+      state.trumpSuit = null;
+    }
     state.trumpRevealCards = cards;
     if (state.kittyRevealCard) {
       state.kittyRevealCard = null;
@@ -826,7 +845,7 @@ window.Game = (function () {
     if (state.trumpSuit || state.kittyRevealInProgress) return false;
     state.kittyRevealInProgress = true;
     state.revealWindowOpen = false;
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+    renderTrumpActionsWith({
       revealWindowOpen: false,
       allowPendingReveal: false
     });
@@ -930,7 +949,7 @@ window.Game = (function () {
     applyReveal(candidate.reveal, 0, candidate.cards || []);
     state.pendingRevealKey = null;
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+    renderTrumpActionsWith({
       revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
@@ -1002,7 +1021,7 @@ window.Game = (function () {
 
     if (state.phase !== "play") {
       state.phase = "play";
-      Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+      renderTrumpActionsWith({
         allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
       });
       Render.renderReveal(state);
@@ -1092,7 +1111,7 @@ window.Game = (function () {
     state.selectedCards = [];
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
     Render.renderTrick(state.currentTrick, state);
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+    renderTrumpActionsWith({
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);

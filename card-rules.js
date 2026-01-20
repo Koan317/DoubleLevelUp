@@ -6,6 +6,7 @@
 
   function isTrump(card, state) {
     if (card.suit === "JOKER") return true;
+    if (state.level === "王") return false;
     if (card.rank === state.level) return true;
     if (card.suit === state.trumpSuit) return true;
     return false;

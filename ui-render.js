@@ -170,8 +170,10 @@ window.Render = (function () {
       ? options.revealWindowOpen
       : (phase === "reveal" || phase === "twist" || phase === "dealing");
     const allowPendingReveal = options.allowPendingReveal ?? phase === "dealing";
+    const revealJokersOnly = phase === "reveal" && options.revealOnlyJokers;
+    const isRevealKey = key => (revealJokersOnly ? (key === "BJ" || key === "SJ") : isSuitKey(key));
     const visibleActions = phase === "reveal"
-      ? actions.filter(action => isSuitKey(action.key))
+      ? actions.filter(action => isRevealKey(action.key))
       : actions;
     el.classList.toggle("hidden", !shouldShow);
     if (!shouldShow) return;
@@ -189,7 +191,7 @@ window.Render = (function () {
         existingButtons.set(action.key, button);
       }
 
-      const canClick = action.enabled || (allowPendingReveal && isSuitKey(action.key));
+      const canClick = action.enabled || (allowPendingReveal && isRevealKey(action.key));
       button.textContent = action.label;
       button.disabled = !canClick;
       button.className = "trump-action";
@@ -200,7 +202,7 @@ window.Render = (function () {
         button.classList.add("enabled");
       } else {
         button.classList.add("disabled");
-        if (allowPendingReveal && isSuitKey(action.key)) {
+        if (allowPendingReveal && isRevealKey(action.key)) {
           button.classList.add("pending-allowed");
         }
       }
