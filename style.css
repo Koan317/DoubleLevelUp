@@ -258,6 +258,10 @@
     transition: transform 0.6s ease, opacity 0.6s ease;
 }
 
+#kitty .kitty-card.kitty-instant {
+    transition: none;
+}
+
 #kitty .kitty-card.kitty-move {
     transform: translate(var(--kitty-target-x, 0px), var(--kitty-target-y, 0px)) scale(0.9);
     opacity: 0.3;

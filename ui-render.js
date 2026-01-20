@@ -345,13 +345,21 @@ window.Render = (function () {
     }
     const cards = kitty.querySelectorAll(".kitty-card");
     cards.forEach(card => {
-      card.classList.remove("kitty-move");
-      card.classList.add("kitty-return");
+      card.classList.remove("kitty-return");
+      card.classList.add("kitty-instant");
+      card.classList.add("kitty-move");
     });
-    setTimeout(() => {
-      cards.forEach(card => card.classList.remove("kitty-return"));
-      if (onComplete) onComplete();
-    }, 700);
+    requestAnimationFrame(() => {
+      cards.forEach(card => {
+        card.classList.remove("kitty-instant");
+        card.classList.remove("kitty-move");
+        card.classList.add("kitty-return");
+      });
+      setTimeout(() => {
+        cards.forEach(card => card.classList.remove("kitty-return"));
+        if (onComplete) onComplete();
+      }, 700);
+    });
   }
 
   function renderCountdown(countdownValue) {
