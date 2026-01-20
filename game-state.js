@@ -112,7 +112,7 @@ window.Game = (function () {
   function getRevealOptions(phase = state.phase) {
     const isJokerLevel = state.level === "王";
     return {
-      requireSameColor: isFirstRound(),
+      requireSameColor: true,
       allowDoubleJokers: phase === "twist" || isJokerLevel
     };
   }
@@ -644,7 +644,7 @@ window.Game = (function () {
       const sorted = list
         .filter(candidate => canTwistByPlayer(0, candidate.reveal))
         .slice()
-        .sort((a, b) => a.reveal.power - b.reveal.power);
+        .sort((a, b) => b.reveal.power - a.reveal.power);
       if (!state.trumpReveal) return sorted[0];
       return sorted.find(candidate => Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) || null;
     };
@@ -680,7 +680,7 @@ window.Game = (function () {
       return getFirstRoundRevealForSuit(key);
     }
 
-    const sorted = matched.slice().sort((a, b) => a.reveal.power - b.reveal.power);
+    const sorted = matched.slice().sort((a, b) => b.reveal.power - a.reveal.power);
     if (!state.trumpReveal) return sorted[0] || null;
     return sorted.find(candidate => Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) || null;
   }
@@ -864,22 +864,23 @@ window.Game = (function () {
     if (!joker) return null;
     const levels = hand.filter(card => card.rank === state.level && card.suit === suit);
     if (!levels.length) return null;
+    if (levels.length >= 2) {
+      const doubleCards = [joker, levels[0], levels[1]];
+      const doubleReveal = Trump.analyzeReveal(doubleCards, state.level, {
+        requireSameColor: true,
+        allowDoubleJokers: false
+      });
+      if (doubleReveal) {
+        return { reveal: doubleReveal, cards: doubleCards };
+      }
+    }
     const singleCards = [joker, levels[0]];
     const singleReveal = Trump.analyzeReveal(singleCards, state.level, {
       requireSameColor: true,
       allowDoubleJokers: false
     });
-    if (singleReveal) {
-      return { reveal: singleReveal, cards: singleCards };
-    }
-    if (levels.length < 2) return null;
-    const doubleCards = [joker, levels[0], levels[1]];
-    const doubleReveal = Trump.analyzeReveal(doubleCards, state.level, {
-      requireSameColor: true,
-      allowDoubleJokers: false
-    });
-    if (!doubleReveal) return null;
-    return { reveal: doubleReveal, cards: doubleCards };
+    if (!singleReveal) return null;
+    return { reveal: singleReveal, cards: singleCards };
   }
 
   function aiRevealAllowed(candidate, options) {
