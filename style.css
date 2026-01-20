@@ -247,6 +247,7 @@
 
 .trick-pile .card {
     margin-left: -40px;
+    transform-origin: center center;
 }
 
 .trick-pile .card:first-child {
