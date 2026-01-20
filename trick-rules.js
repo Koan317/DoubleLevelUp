@@ -117,6 +117,12 @@
     if (!aIsLead && pa.isMixedSuit && !( !bIsLead && pb.isMixedSuit)) return false;
     if (!bIsLead && pb.isMixedSuit && !( !aIsLead && pa.isMixedSuit)) return true;
 
+    // 拖拉机：非首家未跟花色/主牌则必小
+    if (leadPattern.type === "tractor") {
+      if (!aIsLead && !sameSuitType(pa, leadPattern)) return false;
+      if (!bIsLead && !sameSuitType(pb, leadPattern)) return true;
+    }
+
     // 1️⃣ 贴牌（未按首家牌型跟）一律算小
     if (leadPattern.type !== "throw") {
       const aMatchesLead = pa.type === leadPattern.type;
