@@ -125,11 +125,11 @@ window.Game = (function () {
     if (state.nextBankerIndex !== null && state.nextBankerIndex !== undefined) {
       return getTeamLevel(getTeamKeyByPlayer(state.nextBankerIndex));
     }
-    return state.level;
+    return null;
   }
 
   function shouldRevealJokersOnly() {
-    return getBankerTeamLevel() === "王";
+    return state.phase === "reveal" && getBankerTeamLevel() === "王";
   }
 
   function renderTrumpActionsWith(options = {}) {
