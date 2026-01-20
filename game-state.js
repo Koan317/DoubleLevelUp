@@ -1176,7 +1176,7 @@ window.Game = (function () {
       ? Bottom.calcMultiplierByWinningPlay(
           winningPattern || { type: "single", length: 1, cards: [] },
           state.level
-        ) * 2
+        )
       : 0;
     console.log("回合结束信息", {
       lastTrickWinner: playerLabels[winner] || `玩家${winner}`,
