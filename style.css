@@ -78,7 +78,7 @@
 }
 
 .north {
-    top: calc(50% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height) - var(--layout-gap) - var(--badge-height) - var(--layout-gap) - var(--play-area-height));
+    top: 0;
     left: 50%;
     transform: translateX(-50%);
 }
@@ -90,12 +90,12 @@
 }
 
 .west {
-    left: calc(50% - (var(--kitty-width) / 2) - var(--layout-gap) - var(--trick-pile-width) - var(--layout-gap) - var(--badge-width) - var(--layout-gap) - var(--play-area-width));
+    left: 4%;
     top: calc(50% - (var(--play-area-height) / 2));
 }
 
 .east {
-    left: calc(50% + (var(--kitty-width) / 2) + var(--layout-gap) + var(--trick-pile-width) + var(--layout-gap) + var(--badge-width) + var(--layout-gap));
+    left: 83%;
     top: calc(50% - (var(--play-area-height) / 2));
 }
 
@@ -224,25 +224,25 @@
 }
 
 .trick-pile.north {
-    top: calc(50% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height));
-    left: 50%;
+    top: calc(45% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height));
+    left: 60%;
     transform: translateX(-50%);
 }
 
 .trick-pile.south {
-    top: calc(50% + (var(--kitty-height) / 2) + var(--layout-gap));
-    left: 50%;
+    top: calc(55% + (var(--kitty-height) / 2) + var(--layout-gap));
+    left: 40%;
     transform: translateX(-50%);
 }
 
 .trick-pile.west {
-    left: calc(50% - (var(--kitty-width) / 2) - var(--layout-gap) - var(--trick-pile-width));
-    top: calc(50% - (var(--trick-pile-height) / 2));
+    left: calc(45% - (var(--kitty-width) / 2) - var(--layout-gap) - var(--trick-pile-width));
+    top: calc(40% - (var(--trick-pile-height) / 2));
 }
 
 .trick-pile.east {
-    left: calc(50% + (var(--kitty-width) / 2) + var(--layout-gap));
-    top: calc(50% - (var(--trick-pile-height) / 2));
+    left: calc(55% + (var(--kitty-width) / 2) + var(--layout-gap));
+    top: calc(60% - (var(--trick-pile-height) / 2));
 }
 
 .trick-pile .card {
