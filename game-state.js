@@ -123,7 +123,6 @@ window.Game = (function () {
     state.revealWindowOpen = false;
     clearRevealCountdown();
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: false
     });
     state.kittyOwner = recipientIndex;
@@ -247,7 +246,6 @@ window.Game = (function () {
     Render.setPlayButtonVisible(true);
     Render.setPlayButtonEnabled(state.turn === 0);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      revealWindowOpen: false,
       allowPendingReveal: false
     });
     Render.renderReveal(state);
@@ -334,7 +332,6 @@ window.Game = (function () {
     Render.renderKitty(state);
     Render.renderKittyMultiplier(state.kittyMultiplier, false);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);
@@ -403,7 +400,6 @@ window.Game = (function () {
           tryPendingReveal();
         }
         Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-          revealWindowOpen: state.revealWindowOpen,
           allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
         });
         Render.renderStatus(state);
@@ -975,7 +971,6 @@ window.Game = (function () {
     if (state.phase !== "play") {
       state.phase = "play";
       Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-        revealWindowOpen: state.revealWindowOpen,
         allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
       });
       Render.renderReveal(state);
@@ -1066,7 +1061,6 @@ window.Game = (function () {
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
     Render.renderTrick(state.currentTrick, state);
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
-      revealWindowOpen: state.revealWindowOpen,
       allowPendingReveal: state.phase === "dealing" && state.revealWindowOpen
     });
     Render.renderStatus(state);
