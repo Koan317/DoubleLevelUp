@@ -2,6 +2,14 @@
 
 window.Render = (function () {
   const ruleMessages = [];
+  const trickPileRotationRange = { min: 5, max: 10 };
+
+  function randomTrickPileRotation() {
+    const magnitude = trickPileRotationRange.min
+      + Math.random() * (trickPileRotationRange.max - trickPileRotationRange.min);
+    const sign = Math.random() < 0.5 ? -1 : 1;
+    return magnitude * sign;
+  }
 
   function renderHand(hand, state, onSelect, selectedCards = [], options = {}) {
     const el = document.getElementById("hand");
@@ -411,6 +419,7 @@ window.Render = (function () {
       const lastEntry = history[history.length - 1];
       lastEntry.cards.forEach(card => {
         const c = createCardElement(card);
+        c.style.transform = `rotate(${randomTrickPileRotation().toFixed(2)}deg)`;
         pile.appendChild(c);
       });
       pile.onclick = () => onPileClick(playerIndex);
