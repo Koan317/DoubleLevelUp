@@ -11,6 +11,7 @@
     DOUBLE_SJ_JOKER: 2,
     DOUBLE_BJ_JOKER: 3
   };
+  const SUITS = ["♠", "♥", "♣", "♦"];
 
   function analyzeReveal(cards, level, options = {}) {
     const { requireSameColor = false, allowDoubleJokers = true } = options;
@@ -67,6 +68,163 @@
     return jokerIsRed === mainIsRed;
   }
 
+  function isBigJoker(card) {
+    return card.suit === "JOKER" && card.rank === "BJ";
+  }
+
+  function isSmallJoker(card) {
+    return card.suit === "JOKER" && card.rank === "SJ";
+  }
+
+  function isRedSuit(suit) {
+    return suit === "♥" || suit === "♦";
+  }
+
+  function jokerMatchesSuit(joker, suit) {
+    return isRedSuit(suit) ? isBigJoker(joker) : isSmallJoker(joker);
+  }
+
+  function isSuitKey(key) {
+    return SUITS.includes(key);
+  }
+
+  function isOneWangUpgrade(prevReveal, nextReveal) {
+    if (!prevReveal || !nextReveal) return false;
+    if (prevReveal.type !== "ONE_WANG_ONE" || nextReveal.type !== "ONE_WANG_TWO") {
+      return false;
+    }
+    return prevReveal.trumpSuit === nextReveal.trumpSuit;
+  }
+
+  function canTwistByPlayer({ playerIndex, reveal, lastTwistPlayer, lastTwistReveal }) {
+    if (lastTwistPlayer === null || lastTwistPlayer === undefined) {
+      return true;
+    }
+    if (lastTwistPlayer !== playerIndex) return true;
+    return isOneWangUpgrade(lastTwistReveal, reveal);
+  }
+
+  function findRevealsForHand(hand, level, options = {}) {
+    const { requireSameColor = false, allowDoubleJokers = true } = options;
+    const reveals = [];
+    const bigJokers = hand.filter(card => isBigJoker(card));
+    const smallJokers = hand.filter(card => isSmallJoker(card));
+    const levelBySuit = {};
+
+    hand.forEach(card => {
+      if (card.rank !== level) return;
+      if (!levelBySuit[card.suit]) {
+        levelBySuit[card.suit] = [];
+      }
+      levelBySuit[card.suit].push(card);
+    });
+
+    if (allowDoubleJokers && bigJokers.length >= 2) {
+      reveals.push({
+        cards: [bigJokers[0], bigJokers[1]],
+        reveal: analyzeReveal([bigJokers[0], bigJokers[1]], level, {
+          requireSameColor,
+          allowDoubleJokers
+        })
+      });
+    }
+
+    if (allowDoubleJokers && smallJokers.length >= 2) {
+      reveals.push({
+        cards: [smallJokers[0], smallJokers[1]],
+        reveal: analyzeReveal([smallJokers[0], smallJokers[1]], level, {
+          requireSameColor,
+          allowDoubleJokers
+        })
+      });
+    }
+
+    const jokers = [...bigJokers, ...smallJokers];
+    jokers.forEach(joker => {
+      const singleReveal = analyzeReveal([joker], level, {
+        requireSameColor,
+        allowDoubleJokers
+      });
+      if (singleReveal) {
+        reveals.push({ cards: [joker], reveal: singleReveal });
+      }
+
+      Object.keys(levelBySuit).forEach(suit => {
+        const levels = levelBySuit[suit];
+        if (!levels.length) return;
+        if (requireSameColor && !jokerMatchesSuit(joker, suit)) return;
+        const singleCards = [joker, levels[0]];
+        reveals.push({
+          cards: singleCards,
+          reveal: analyzeReveal(singleCards, level, {
+            requireSameColor,
+            allowDoubleJokers
+          })
+        });
+        if (levels.length >= 2) {
+          const doubleCards = [joker, levels[0], levels[1]];
+          reveals.push({
+            cards: doubleCards,
+            reveal: analyzeReveal(doubleCards, level, {
+              requireSameColor,
+              allowDoubleJokers
+            })
+          });
+        }
+      });
+    });
+
+    return reveals;
+  }
+
+  function getFirstRoundRevealForSuit(hand, level, suit, options = {}) {
+    const { requireSameColor = true, allowDoubleJokers = false } = options;
+    if (!suit || suit === "BJ" || suit === "SJ") return null;
+    const joker = hand.find(card => jokerMatchesSuit(card, suit));
+    if (!joker) return null;
+    const levels = hand.filter(card => card.rank === level && card.suit === suit);
+    if (!levels.length) return null;
+    if (levels.length >= 2) {
+      const doubleCards = [joker, levels[0], levels[1]];
+      const doubleReveal = analyzeReveal(doubleCards, level, {
+        requireSameColor,
+        allowDoubleJokers
+      });
+      if (doubleReveal) {
+        return { reveal: doubleReveal, cards: doubleCards };
+      }
+    }
+    const singleCards = [joker, levels[0]];
+    const singleReveal = analyzeReveal(singleCards, level, {
+      requireSameColor,
+      allowDoubleJokers
+    });
+    if (!singleReveal) return null;
+    return { reveal: singleReveal, cards: singleCards };
+  }
+
+  function aiRevealAllowed(candidate, options = {}) {
+    if (!candidate?.reveal || !candidate.cards?.length) return false;
+    const { requireSameColor } = options;
+    const { trumpSuit } = candidate.reveal;
+    if (trumpSuit) {
+      const joker = candidate.cards.find(card => card.suit === "JOKER");
+      if (!joker) return false;
+      if (requireSameColor && !jokerMatchesSuit(joker, trumpSuit)) {
+        return false;
+      }
+      return true;
+    }
+    if (candidate.reveal.type === "SINGLE_JOKER") {
+      return true;
+    }
+    const jokers = candidate.cards.filter(card => card.suit === "JOKER");
+    if (jokers.length < 2) return false;
+    const allBig = jokers.every(card => isBigJoker(card));
+    const allSmall = jokers.every(card => isSmallJoker(card));
+    return allBig || allSmall;
+  }
+
   function canOverride(newR, oldR) {
     if (!oldR) return true;
     return revealRank(newR) > revealRank(oldR);
@@ -92,6 +250,18 @@
   window.Trump = {
     analyzeReveal,
     canOverride
+  };
+
+  window.TrumpUtils = {
+    aiRevealAllowed,
+    canTwistByPlayer,
+    findRevealsForHand,
+    getFirstRoundRevealForSuit,
+    isBigJoker,
+    isRedSuit,
+    isSmallJoker,
+    isSuitKey,
+    jokerMatchesSuit
   };
 
 })();
