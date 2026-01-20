@@ -36,6 +36,7 @@ window.Game = (function () {
     trickIndex: 0,
     playedCards: [],
     kittyRevealInProgress: false,
+    twistDisabled: false,
   };
 
   let revealCountdownTimer = null;
@@ -121,6 +122,8 @@ window.Game = (function () {
     if (!state.trumpReveal) return;
     state.phase = "kitty";
     state.revealWindowOpen = false;
+    state.kittyRevealCard = null;
+    Render.clearKittyOwnerProof();
     clearRevealCountdown();
     Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
       allowPendingReveal: false
@@ -142,7 +145,7 @@ window.Game = (function () {
       }
       autoDiscardKittyForAI(recipientIndex);
       Render.animateKittyReturn(() => {
-        startTwistPhase();
+        proceedAfterKitty();
       });
     }, { keepAtTarget: true });
   }
@@ -189,10 +192,7 @@ window.Game = (function () {
         if (state.trumpReveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) {
           return;
         }
-        const shouldOverrideBanker = state.kittyOwner !== null && state.kittyOwner !== undefined;
-        applyReveal(candidate.reveal, playerIndex, candidate.cards || [], {
-          overrideBanker: shouldOverrideBanker
-        });
+        applyReveal(candidate.reveal, playerIndex, candidate.cards || []);
         handleTwistSuccess(playerIndex);
       }, delay);
       twistWindowTimers.push(timer);
@@ -200,6 +200,12 @@ window.Game = (function () {
   }
 
   function startTwistPhase() {
+    if (state.twistDisabled) {
+      state.revealWindowOpen = false;
+      clearRevealCountdown();
+      startPlayFromBanker();
+      return;
+    }
     state.phase = "twist";
     Render.setPlayButtonVisible(false);
     const eligiblePlayers = getTwistEligiblePlayers();
@@ -308,6 +314,7 @@ window.Game = (function () {
     state.trickIndex = 0;
     state.playedCards = [];
     state.kittyRevealInProgress = false;
+    state.twistDisabled = false;
     const hasPresetBanker = state.nextBankerIndex !== null && state.nextBankerIndex !== undefined;
     state.phase = hasPresetBanker ? "reveal" : "dealing";
     state.score = 0;
@@ -328,6 +335,7 @@ window.Game = (function () {
     Render.setNextRoundButtonVisible(false);
     Render.bindPileModalHandlers();
     Render.hidePileModal();
+    Render.clearKittyOwnerProof();
     clearRevealCountdown();
     Render.renderKitty(state);
     Render.renderKittyMultiplier(state.kittyMultiplier, false);
@@ -574,10 +582,7 @@ window.Game = (function () {
     if (state.trumpReveal && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
       return;
     }
-    const shouldOverrideBanker = wasTwistPhase && state.kittyOwner !== null && state.kittyOwner !== undefined;
-    applyReveal(reveal, 0, revealCards, {
-      overrideBanker: shouldOverrideBanker
-    });
+    applyReveal(reveal, 0, revealCards);
     state.pendingRevealKey = null;
     if (wasTwistPhase) {
       handleTwistSuccess(0);
@@ -677,11 +682,20 @@ window.Game = (function () {
     const bankerIndex = overrideBanker ? playerIndex : (state.trumpReveal?.player ?? playerIndex);
     state.trumpSuit = reveal.trumpSuit;
     state.trumpReveal = { player: bankerIndex, reveal };
+    state.level = getTeamLevel(getTeamKeyByPlayer(bankerIndex));
     state.trumpRevealCards = cards;
+    if (state.kittyRevealCard) {
+      state.kittyRevealCard = null;
+      Render.renderKitty(state);
+    }
+    if (reveal?.type === "KITTY_MATCH") {
+      state.twistDisabled = true;
+    }
     state.bankerTeam = bankerIndex % 2 === 0 ? [0, 2] : [1, 3];
     state.scoreTeam = bankerIndex % 2 === 0 ? [1, 3] : [0, 2];
     state.lastTwistPlayer = playerIndex;
     state.lastTwistReveal = reveal;
+    Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
   }
 
   function grantKittyToPlayer(playerIndex) {
@@ -705,6 +719,14 @@ window.Game = (function () {
     Render.renderKitty(state);
   }
 
+  function proceedAfterKitty() {
+    if (state.twistDisabled) {
+      startPlayFromBanker();
+      return;
+    }
+    startTwistPhase();
+  }
+
   function handleHumanKittyDiscard() {
     if (!state.kitty.length) return;
     if (state.selectedCards.length !== state.kitty.length) {
@@ -721,7 +743,7 @@ window.Game = (function () {
     Render.renderRuleMessage(null);
     Render.setPlayButtonEnabled(false);
     Render.animateKittyReturn(() => {
-      startTwistPhase();
+      proceedAfterKitty();
     });
   }
 
@@ -920,6 +942,12 @@ window.Game = (function () {
     const leadPattern = state.currentTrick[0]?.pattern || null;
     const sourceLabel = options.source || "操作";
     const playPattern = Pattern.analyzePlay(cards, state);
+
+    if (!leadPattern && playPattern.type === "throw" && playPattern.isTrump) {
+      state.invalidActionReason = `${sourceLabel}不合法：主牌禁止甩牌`;
+      Render.renderRuleMessage(state.invalidActionReason);
+      return false;
+    }
 
     // 首家禁止混合花色出牌
     if (!leadPattern && playPattern.isMixedSuit) {

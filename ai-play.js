@@ -19,7 +19,12 @@ window.AI = (function () {
     analyzed.sort(compareCardAsc);
 
     if (!leadPattern) {
-      return pickLeadPlay(hand, analyzed, state);
+      const leadPlay = pickLeadPlay(hand, analyzed, state);
+      const leadPatternCheck = Pattern.analyzePlay(leadPlay, state);
+      if (leadPatternCheck.type === "throw" && leadPatternCheck.isTrump) {
+        return pickNonTrumpSingle(analyzed);
+      }
+      return leadPlay;
     }
 
     return pickFollowPlay(hand, analyzed, leadPattern, state);
@@ -62,6 +67,14 @@ window.AI = (function () {
 
     const singles = analyzed.map(item => [item.card]);
     return pickSafestCandidate(singles, state, hand);
+  }
+
+  function pickNonTrumpSingle(analyzed) {
+    const nonTrump = analyzed.filter(item => !item.pattern.isTrump).map(item => [item.card]);
+    if (nonTrump.length) {
+      return nonTrump[0];
+    }
+    return analyzed.length ? [analyzed[0].card] : [];
   }
 
   function pickFollowPlay(hand, analyzed, leadPattern, state) {

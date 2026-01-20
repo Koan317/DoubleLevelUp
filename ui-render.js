@@ -170,13 +170,16 @@ window.Render = (function () {
       ? options.revealWindowOpen
       : (phase === "reveal" || phase === "twist" || phase === "dealing");
     const allowPendingReveal = options.allowPendingReveal ?? phase === "dealing";
+    const visibleActions = phase === "reveal"
+      ? actions.filter(action => isSuitKey(action.key))
+      : actions;
     el.classList.toggle("hidden", !shouldShow);
     if (!shouldShow) return;
 
     const existingButtons = el._actionButtons || new Map();
-    const actionKeys = new Set(actions.map(action => action.key));
+    const actionKeys = new Set(visibleActions.map(action => action.key));
 
-    actions.forEach(action => {
+    visibleActions.forEach(action => {
       let button = existingButtons.get(action.key);
       if (!button) {
         button = document.createElement("button");
@@ -215,37 +218,50 @@ window.Render = (function () {
   }
 
   function sortHandCards(a, b, state) {
-    const suitDiff = suitOrder(a, state) - suitOrder(b, state);
-    if (suitDiff !== 0) return suitDiff;
-    const rankDiff = cardSortIndex(a, state) - cardSortIndex(b, state);
-    if (rankDiff !== 0) return rankDiff;
-    return Rules.rankValue(b.rank) - Rules.rankValue(a.rank);
+    const keyA = handSortKey(a, state);
+    const keyB = handSortKey(b, state);
+    const length = Math.max(keyA.length, keyB.length);
+    for (let i = 0; i < length; i += 1) {
+      const diff = (keyA[i] ?? 0) - (keyB[i] ?? 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
   }
 
-  function suitOrder(card, state) {
-    if (Rules.isTrump(card, state)) return 0;
-    const order = ["♠", "♥", "♣", "♦"];
-    const index = order.indexOf(card.suit);
-    return index === -1 ? order.length + 1 : index + 1;
-  }
-
-  function cardSortIndex(card, state) {
-    const descendingRanks = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
-
-    if (Rules.isTrump(card, state)) {
+  function handSortKey(card, state) {
+    const isTrump = Rules.isTrump(card, state);
+    if (isTrump) {
       if (card.suit === "JOKER") {
-        return card.rank === "BJ" ? 0 : 1;
+        return [0, card.rank === "BJ" ? 0 : 1, 0, 0];
       }
       if (card.rank === state.level) {
-        return card.suit === state.trumpSuit ? 2 : 3;
+        if (card.suit === state.trumpSuit) {
+          return [1, 0, 0, 0];
+        }
+        return [2, suitIndex(card.suit), 0, 0];
       }
-      const filtered = descendingRanks.filter(rank => rank !== state.level);
-      const index = filtered.indexOf(card.rank);
-      return index === -1 ? filtered.length + 4 : index + 4;
+      return [3, 0, trumpRankIndex(card, state), 0];
     }
+    return [4, suitIndex(card.suit), sideRankIndex(card.rank), 0];
+  }
 
-    const index = descendingRanks.indexOf(card.rank);
-    return index === -1 ? descendingRanks.length + 1 : index;
+  function suitIndex(suit) {
+    const order = ["♠", "♥", "♣", "♦"];
+    const index = order.indexOf(suit);
+    return index === -1 ? order.length : index;
+  }
+
+  function trumpRankIndex(card, state) {
+    const descendingRanks = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
+    const filtered = descendingRanks.filter(rank => rank !== state.level);
+    const index = filtered.indexOf(card.rank);
+    return index === -1 ? filtered.length : index;
+  }
+
+  function sideRankIndex(rank) {
+    const descendingRanks = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
+    const index = descendingRanks.indexOf(rank);
+    return index === -1 ? descendingRanks.length : index;
   }
 
   function createCardElement(card) {
@@ -483,6 +499,12 @@ window.Render = (function () {
     slot.appendChild(proof);
   }
 
+  function clearKittyOwnerProof() {
+    document.querySelectorAll(".kitty-proof-slot").forEach(slot => {
+      slot.remove();
+    });
+  }
+
   function showPileModal(playerIndex, state) {
     const modal = document.getElementById("pile-modal");
     const body = modal?.querySelector(".pile-modal-body");
@@ -572,6 +594,7 @@ window.Render = (function () {
     renderKittyMultiplier,
     renderTrickPiles,
     renderKittyOwnerProof,
+    clearKittyOwnerProof,
     showPileModal,
     hidePileModal,
     bindPileModalHandlers,
