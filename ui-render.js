@@ -13,6 +13,7 @@ window.Render = (function () {
 
   function renderHand(hand, state, onSelect, selectedCards = [], options = {}) {
     const el = document.getElementById("hand");
+    if (!el) return;
     el.innerHTML = "";
     el.classList.toggle("dealing", state.phase === "dealing");
     const selectedSet = new Set(selectedCards);
@@ -163,8 +164,10 @@ window.Render = (function () {
   function renderTrumpActions(actions, phase, onReveal, options = {}) {
     const el = document.getElementById("trump-actions");
     if (!el) return;
-    const { revealWindowOpen } = options;
-    const shouldShow = revealWindowOpen ?? (phase === "reveal" || phase === "twist" || phase === "dealing");
+    const hasFlag = Object.prototype.hasOwnProperty.call(options, "revealWindowOpen");
+    const shouldShow = hasFlag
+      ? options.revealWindowOpen
+      : (phase === "reveal" || phase === "twist" || phase === "dealing");
     const allowPendingReveal = options.allowPendingReveal ?? phase === "dealing";
     el.classList.toggle("hidden", !shouldShow);
     if (!shouldShow) return;
