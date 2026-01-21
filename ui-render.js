@@ -351,34 +351,35 @@ window.Render = (function () {
   function renderBankerBadge(state) {
     const badge = document.getElementById("banker-badge");
     if (!badge) return;
+    const hideBadge = target => {
+      target.className = "banker-badge hidden";
+      target.textContent = "";
+    };
     const table = document.getElementById("table");
     const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
-    if (!area || !table) {
-      badge.className = "banker-badge hidden";
-      badge.textContent = "";
-      return;
-    }
+    if (!area || !table) return hideBadge(badge);
 
     const tableRect = table.getBoundingClientRect();
     const pile = document.querySelector(`.trick-pile.${area}`);
-    if (!pile) {
-      badge.className = "banker-badge hidden";
-      badge.textContent = "";
-      return;
-    }
+    if (!pile) return hideBadge(badge);
     const pileRect = pile.getBoundingClientRect();
     const gap = 18;
     let top = pileRect.top - tableRect.top + pileRect.height / 2;
     let left = pileRect.left - tableRect.left + pileRect.width / 2;
 
-    if (area === "north") {
-      top = pileRect.top - tableRect.top - gap;
-    } else if (area === "south") {
-      top = pileRect.bottom - tableRect.top + gap;
-    } else if (area === "west") {
-      left = pileRect.left - tableRect.left - gap;
-    } else if (area === "east") {
-      left = pileRect.right - tableRect.left + gap;
+    switch (area) {
+      case "north":
+        top = pileRect.top - tableRect.top - gap;
+        break;
+      case "south":
+        top = pileRect.bottom - tableRect.top + gap;
+        break;
+      case "west":
+        left = pileRect.left - tableRect.left - gap;
+        break;
+      case "east":
+        left = pileRect.right - tableRect.left + gap;
+        break;
     }
 
     badge.textContent = "庄";
