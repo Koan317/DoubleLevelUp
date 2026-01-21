@@ -520,44 +520,48 @@ window.Game = (function () {
     return { ...plan, weightedScore };
   }
 
+  function betterReveal(candidate, best) {
+    if (!best || !best.reveal) return true;
+    const bestPlan = best.plan ?? shouldAiReveal(
+      state.players[best.player],
+      best,
+      state.trumpReveal?.reveal
+    );
+    if (!bestPlan) return true;
+    if (candidate.plan.weightedScore > bestPlan.weightedScore + 1) return true;
+    if (Math.abs(candidate.plan.weightedScore - bestPlan.weightedScore) <= 1) {
+      return (candidate.reveal.power ?? 0) < (best.reveal.power ?? 0);
+    }
+    return false;
+  }
+
   function autoRevealFromAI() {
     let best = state.trumpReveal;
     const revealOptions = getRevealOptions();
 
-    state.players.forEach((hand, index) => {
-      if (index === 0) return;
-      TrumpUtils.findRevealsForHand(hand, state.level, revealOptions).forEach(candidate => {
-        if (!candidate.reveal) return;
-        if (!TrumpUtils.aiRevealAllowed(candidate, revealOptions)) return;
+    for (let index = 1; index < 4; index++) {
+      const hand = state.players[index];
+      for (const candidate of TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)) {
+        if (!candidate.reveal) continue;
+        if (!TrumpUtils.aiRevealAllowed(candidate, revealOptions)) continue;
         if (!TrumpUtils.canTwistByPlayer({
           playerIndex: index,
           reveal: candidate.reveal,
           lastTwistPlayer: state.lastTwistPlayer,
           lastTwistReveal: state.lastTwistReveal
-        })) return;
-        if (state.trumpReveal && state.trumpReveal.player === index) return;
-        if (state.trumpReveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) return;
+        })) continue;
+        if (state.trumpReveal && state.trumpReveal.player === index) continue;
+        if (state.trumpReveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) {
+          continue;
+        }
         const plan = shouldAiReveal(hand, candidate, state.trumpReveal?.reveal);
-        if (!plan) return;
-        if (!best || !best.reveal) {
-          best = { player: index, cards: candidate.cards, reveal: candidate.reveal, plan };
-          return;
+        if (!plan) continue;
+        const item = { player: index, cards: candidate.cards, reveal: candidate.reveal, plan };
+        if (betterReveal(item, best)) {
+          best = item;
         }
-        const bestPlan = best.plan ?? shouldAiReveal(
-          state.players[best.player],
-          best,
-          state.trumpReveal?.reveal
-        );
-        if (!bestPlan || plan.weightedScore > bestPlan.weightedScore + 1) {
-          best = { player: index, cards: candidate.cards, reveal: candidate.reveal, plan };
-          return;
-        }
-        if (Math.abs(plan.weightedScore - bestPlan.weightedScore) <= 1 &&
-            (candidate.reveal.power ?? 0) < (best.reveal.power ?? 0)) {
-          best = { player: index, cards: candidate.cards, reveal: candidate.reveal, plan };
-        }
-      });
-    });
+      }
+    }
 
     if (best && best.reveal && best !== state.trumpReveal) {
       applyReveal(best.reveal, best.player, best.cards || []);
