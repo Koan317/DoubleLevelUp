@@ -60,13 +60,22 @@ window.AI = (function () {
       const preferredRank = state.level === "A" ? "K" : "A";
       const sideHighSingles = hand
         .filter(card => !Rules.isTrump(card, state) && card.rank === preferredRank)
-        .map(card => [card])
-        .sort((a, b) => Rules.cardPower(a[0], state) - Rules.cardPower(b[0], state));
+        .map(card => [card]);
       if (sideHighSingles.length) {
-        return sideHighSingles[0];
+        return pickHighestPowerCombo(sideHighSingles, state);
       }
 
       const sideCards = hand.filter(card => !Rules.isTrump(card, state));
+      const safeSideTractors = pickSafeCandidates(findLeadTractors(sideCards, state), state, hand);
+      if (safeSideTractors.length) {
+        return pickHighestPowerCombo(safeSideTractors, state);
+      }
+
+      const safeSidePairs = pickSafeCandidates(findLeadPairs(sideCards, state), state, hand);
+      if (safeSidePairs.length) {
+        return pickHighestPowerCombo(safeSidePairs, state);
+      }
+
       const sideLead = pickLeadFrom(sideCards, state, hand);
       if (sideLead) {
         return sideLead;
@@ -74,10 +83,15 @@ window.AI = (function () {
 
       const trumpCards = hand.filter(card => Rules.isTrump(card, state));
       if (trumpCards.length) {
+        const trumpTractors = findLeadTractors(trumpCards, state);
+        if (trumpTractors.length) {
+          return pickHighestPowerCombo(trumpTractors, state);
+        }
         const trumpLead = pickLeadFrom(trumpCards, state, hand);
         if (trumpLead) {
           return trumpLead;
         }
+        return pickLowestPowerSingle(trumpCards, state);
       }
     }
 
@@ -341,6 +355,13 @@ window.AI = (function () {
     return scored[0]?.cards || candidates[0];
   }
 
+  function pickSafeCandidates(candidates, state, hand) {
+    return candidates.filter(cards => {
+      const pattern = Pattern.analyzePlay(cards, state);
+      return !likelyBeaten(cards, pattern, state, hand);
+    });
+  }
+
   function enrichCombos(combos, leadPattern, state) {
     return combos.map(cards => {
       const pattern = Pattern.analyzePlay(cards, state);
@@ -403,6 +424,12 @@ window.AI = (function () {
         return b.power - a.power;
       }
     );
+  }
+
+  function pickLowestPowerSingle(cards, state) {
+    if (!cards.length) return [];
+    const sorted = cards.slice().sort((a, b) => Rules.cardPower(a, state) - Rules.cardPower(b, state));
+    return [sorted[0]];
   }
 
   function pickByEnriched(candidates, cmp) {
