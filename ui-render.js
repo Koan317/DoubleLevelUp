@@ -84,10 +84,13 @@ window.Render = (function () {
       ? `${state.trumpSuit}${isDoubleSuit ? state.trumpSuit : ""}`
       : "无主";
     const mainCard = state.trumpSuit ? `${suitDisplay}${state.level}` : `无主${state.level}`;
+    const revealInfo = state.initialRevealInfo
+      ? `亮主：${playerLabels[state.initialRevealInfo.player] || "玩家"}${state.initialRevealInfo.label ? ` ${state.initialRevealInfo.label}` : ""}`
+      : "亮主：未定";
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
     document.getElementById("status").innerText =
-      `主：${mainCard}\n${banker}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
+      `主：${mainCard}\n${banker}\n${revealInfo}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
     const scoreEl = document.getElementById("score-display");
     if (scoreEl) {
       scoreEl.textContent = `得分 ${state.score}`;

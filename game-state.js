@@ -29,6 +29,7 @@ window.Game = (function () {
     kittyOwner: null,
     lastTwistPlayer: null,
     lastTwistReveal: null,
+    initialRevealInfo: null,
     kittyRevealed: false,
     kittyMultiplier: null,
     awaitingNextRound: false,
@@ -49,6 +50,19 @@ window.Game = (function () {
       return card.rank === "BJ" ? "大王" : "小王";
     }
     return `${card.rank}${card.suit}`;
+  }
+
+  function formatRevealLabel(reveal, revealCards = []) {
+    const cardLabels = revealCards.map(formatCardForLog).filter(Boolean);
+    if (cardLabels.length) {
+      return cardLabels.join("");
+    }
+    if (!reveal) return "无主";
+    if (reveal.type === "DOUBLE_BJ") return "大王大王";
+    if (reveal.type === "DOUBLE_SJ") return "小王小王";
+    if (reveal.type === "SINGLE_JOKER") return reveal.jokerRank === "BJ" ? "大王" : "小王";
+    if (reveal.trumpSuit) return `${state.level}${reveal.trumpSuit}`;
+    return "无主";
   }
 
   function loadSavedLevels() {
@@ -335,6 +349,7 @@ window.Game = (function () {
     state.scoreTeam = [];
     state.lastTwistPlayer = null;
     state.lastTwistReveal = null;
+    state.initialRevealInfo = null;
     state.awaitingNextRound = false;
     state.trickHistory = [[], [], [], []];
     state.trickIndex = 0;
@@ -721,6 +736,7 @@ window.Game = (function () {
   function applyReveal(reveal, playerIndex, cards = [], options = {}) {
     const revealLevel = state.level;
     const overrideBanker = options.overrideBanker ?? false;
+    const hadReveal = !!state.trumpReveal?.reveal;
     const bankerIndex = overrideBanker ? playerIndex : (state.trumpReveal?.player ?? playerIndex);
     state.trumpSuit = reveal.trumpSuit;
     state.trumpReveal = { player: bankerIndex, reveal };
@@ -730,6 +746,13 @@ window.Game = (function () {
     }
     const revealCards = cards.length ? cards : getRevealCardsFromHand(reveal, playerIndex, revealLevel);
     state.trumpRevealCards = revealCards;
+    const revealLabel = formatRevealLabel(reveal, revealCards);
+    if (!state.initialRevealInfo) {
+      state.initialRevealInfo = { player: playerIndex, label: revealLabel };
+    }
+    const actionLabel = hadReveal ? "拧主" : "亮主";
+    const playerLabel = playerLabels[playerIndex] || "玩家";
+    Render.renderRuleMessage(`${actionLabel}：${playerLabel}${revealLabel ? ` ${revealLabel}` : ""}`);
     if (state.kittyRevealCard) {
       state.kittyRevealCard = null;
       Render.renderKitty(state);
