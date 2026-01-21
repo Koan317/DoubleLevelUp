@@ -719,6 +719,7 @@ window.Game = (function () {
   }
 
   function applyReveal(reveal, playerIndex, cards = [], options = {}) {
+    const revealLevel = state.level;
     const overrideBanker = options.overrideBanker ?? false;
     const bankerIndex = overrideBanker ? playerIndex : (state.trumpReveal?.player ?? playerIndex);
     state.trumpSuit = reveal.trumpSuit;
@@ -727,7 +728,8 @@ window.Game = (function () {
     if (state.level === "王") {
       state.trumpSuit = null;
     }
-    state.trumpRevealCards = cards;
+    const revealCards = cards.length ? cards : getRevealCardsFromHand(reveal, playerIndex, revealLevel);
+    state.trumpRevealCards = revealCards;
     if (state.kittyRevealCard) {
       state.kittyRevealCard = null;
       Render.renderKitty(state);
@@ -740,6 +742,73 @@ window.Game = (function () {
     state.lastTwistPlayer = playerIndex;
     state.lastTwistReveal = reveal;
     Render.renderHand(state.players[0], state, onHumanSelect, state.selectedCards);
+  }
+
+  function getRevealCardsFromHand(reveal, playerIndex, revealLevel = state.level) {
+    if (!reveal) return [];
+    const hand = state.players[playerIndex] || [];
+    const level = revealLevel;
+    const pickCards = (predicate, count) => {
+      const selected = [];
+      for (const card of hand) {
+        if (selected.length >= count) break;
+        if (predicate(card)) selected.push(card);
+      }
+      return selected;
+    };
+    const isRedSuit = suit => suit === "♥" || suit === "♦";
+    const matchesSuitJoker = (card, suit) => {
+      if (card.suit !== "JOKER") return false;
+      return isRedSuit(suit) ? card.rank === "BJ" : card.rank === "SJ";
+    };
+    const buildJokerForSuit = suit => ({
+      suit: "JOKER",
+      rank: isRedSuit(suit) ? "BJ" : "SJ"
+    });
+    const pickJokerForSuit = suit => (
+      hand.find(card => matchesSuitJoker(card, suit)) ||
+      hand.find(card => card.suit === "JOKER") ||
+      buildJokerForSuit(suit)
+    );
+    const buildLevelCard = suit => ({ suit, rank: level });
+    const pickLevelCards = (suit, count) => pickCards(
+      card => card.rank === level && card.suit === suit,
+      count
+    );
+
+    switch (reveal.type) {
+      case "DOUBLE_BJ": {
+        const jokers = pickCards(card => card.suit === "JOKER" && card.rank === "BJ", 2);
+        while (jokers.length < 2) jokers.push({ suit: "JOKER", rank: "BJ" });
+        return jokers;
+      }
+      case "DOUBLE_SJ": {
+        const jokers = pickCards(card => card.suit === "JOKER" && card.rank === "SJ", 2);
+        while (jokers.length < 2) jokers.push({ suit: "JOKER", rank: "SJ" });
+        return jokers;
+      }
+      case "SINGLE_JOKER":
+        return pickCards(
+          card => card.suit === "JOKER" && card.rank === reveal.jokerRank,
+          1
+        ).concat([{ suit: "JOKER", rank: reveal.jokerRank }]).slice(0, 1);
+      case "ONE_WANG_ONE": {
+        const joker = pickJokerForSuit(reveal.trumpSuit);
+        const levels = pickLevelCards(reveal.trumpSuit, 1);
+        while (levels.length < 1) levels.push(buildLevelCard(reveal.trumpSuit));
+        return [joker, ...levels].filter(Boolean);
+      }
+      case "ONE_WANG_TWO": {
+        const joker = pickJokerForSuit(reveal.trumpSuit);
+        const levels = pickLevelCards(reveal.trumpSuit, 2);
+        while (levels.length < 2) levels.push(buildLevelCard(reveal.trumpSuit));
+        return [joker, ...levels].filter(Boolean);
+      }
+      case "KITTY_MATCH":
+        return state.kittyRevealCard ? [state.kittyRevealCard] : [];
+      default:
+        return [];
+    }
   }
 
   function grantKittyToPlayer(playerIndex) {

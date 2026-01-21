@@ -97,7 +97,7 @@ window.Render = (function () {
   }
 
   function renderReveal(state) {
-    const isRevealPhase = state.phase === "reveal" || state.phase === "twist" || state.phase === "dealing";
+    const isRevealPhase = state.phase === "reveal" || state.phase === "twist" || state.phase === "dealing" || state.phase === "kitty";
     const areas = ["south", "west", "north", "east"];
     if (!isRevealPhase || !state.trumpReveal) {
       if (!isRevealPhase) {
