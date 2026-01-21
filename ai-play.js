@@ -22,7 +22,7 @@ window.AI = (function () {
       const leadPlay = pickLeadPlay(hand, analyzed, state, playerIndex);
       const leadPatternCheck = Pattern.analyzePlay(leadPlay, state);
       if (leadPatternCheck.type === "throw" && leadPatternCheck.isTrump) {
-        return pickNonTrumpSingle(analyzed);
+        return pickNonTrumpSingle(analyzed, hand, state);
       }
       return leadPlay;
     }
@@ -59,7 +59,11 @@ window.AI = (function () {
     if (isBanker) {
       const preferredRank = state.level === "A" ? "K" : "A";
       const sideHighSingles = hand
-        .filter(card => !Rules.isTrump(card, state) && card.rank === preferredRank)
+        .filter(card =>
+          !Rules.isTrump(card, state) &&
+          card.rank === preferredRank &&
+          !isCardInPair(card, hand, state)
+        )
         .map(card => [card]);
       if (sideHighSingles.length) {
         return pickHighestPowerCombo(sideHighSingles, state);
@@ -131,8 +135,10 @@ window.AI = (function () {
     return fallbackLead || [];
   }
 
-  function pickNonTrumpSingle(analyzed) {
-    const nonTrump = analyzed.filter(item => !item.pattern.isTrump).map(item => [item.card]);
+  function pickNonTrumpSingle(analyzed, hand, state) {
+    const nonTrump = analyzed
+      .filter(item => !item.pattern.isTrump && !isCardInPair(item.card, hand, state))
+      .map(item => [item.card]);
     if (nonTrump.length) {
       return nonTrump[0];
     }
@@ -328,6 +334,13 @@ window.AI = (function () {
       groups[key].push(card);
     });
     return groups;
+  }
+
+  function isCardInPair(card, hand, state) {
+    const groups = groupBySuitAndRank(hand, state);
+    const suitKey = Rules.isTrump(card, state) ? "trump" : card.suit;
+    const key = `${suitKey}-${card.rank}`;
+    return (groups[key]?.length ?? 0) >= 2;
   }
 
   function groupPairsBySuitType(hand, state) {
