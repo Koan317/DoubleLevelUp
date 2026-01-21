@@ -113,9 +113,10 @@
     const bIsLead = pb === leadPattern;
 
     // 0️⃣ 贴牌（混合花色）一律算小（非首家）
-    if (!aIsLead && !bIsLead && pa.isMixedSuit && pb.isMixedSuit) return false;
-    if (!aIsLead && pa.isMixedSuit && !( !bIsLead && pb.isMixedSuit)) return false;
-    if (!bIsLead && pb.isMixedSuit && !( !aIsLead && pa.isMixedSuit)) return true;
+    const aMixed = !aIsLead && pa.isMixedSuit;
+    const bMixed = !bIsLead && pb.isMixedSuit;
+    if (aMixed !== bMixed) return !aMixed;
+    if (aMixed && bMixed) return false;
 
     // 拖拉机：非首家未跟花色/主牌则必小
     if (leadPattern.type === "tractor") {
