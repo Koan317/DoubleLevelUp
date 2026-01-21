@@ -95,6 +95,15 @@ window.AI = (function () {
       }
     }
 
+    const sideCards = hand.filter(card => !Rules.isTrump(card, state));
+    const safeSideLeads = pickSafeSideLeads(sideCards, state, hand);
+    if (sideCards.length && !safeSideLeads.length) {
+      const trumpCards = hand.filter(card => Rules.isTrump(card, state));
+      if (trumpCards.length) {
+        return pickLowestPowerSingle(trumpCards, state);
+      }
+    }
+
     const endgame = isEndgame(hand);
     const trumpStrength = evaluateTrumpStrength(hand, state);
     const shouldPullTrump = trumpStrength.count >= 6 && trumpStrength.highCount >= 2;
@@ -377,6 +386,13 @@ window.AI = (function () {
       const pattern = Pattern.analyzePlay(cards, state);
       return !likelyBeaten(cards, pattern, state, hand);
     });
+  }
+
+  function pickSafeSideLeads(sideCards, state, hand) {
+    const tractors = pickSafeCandidates(findLeadTractors(sideCards, state), state, hand);
+    const pairs = pickSafeCandidates(findLeadPairs(sideCards, state), state, hand);
+    const singles = pickSafeCandidates(sideCards.map(card => [card]), state, hand);
+    return [...tractors, ...pairs, ...singles];
   }
 
   function enrichCombos(combos, leadPattern, state) {
