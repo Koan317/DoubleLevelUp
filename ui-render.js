@@ -116,7 +116,7 @@ window.Render = (function () {
     const area = areas[revealPlayer];
     const el = document.querySelector(`.played.${area} .played-slot`);
     if (!el) return;
-    const revealCards = (state.trumpRevealCards || []).filter(card => card.suit !== "JOKER");
+    const revealCards = state.trumpRevealCards || [];
     revealCards.forEach(card => {
       const c = createCardElement(card);
       el.appendChild(c);
