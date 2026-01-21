@@ -154,6 +154,10 @@ window.AI = (function () {
       return sortedCards.slice(0, needCount);
     }
 
+    if (needsSlough(hand, leadPattern, state)) {
+      return pickPreferredSloughCombo(legalCombos, leadPattern, hand, state);
+    }
+
     const position = state.currentTrick?.length ?? 1;
     const leaderPlayer = state.currentTrick?.[0]?.player ?? null;
     const leaderIsTeammate = leaderPlayer !== null && isTeammate(playerIndex, leaderPlayer, state);
@@ -279,6 +283,22 @@ window.AI = (function () {
     return result;
   }
 
+  function needsSlough(hand, leadPattern, state) {
+    const matchingCount = countMatchingCards(hand, leadPattern, state);
+    return matchingCount < leadPattern.length;
+  }
+
+  function countMatchingCards(hand, leadPattern, state) {
+    return hand.filter(card => isMatchingCard(card, leadPattern, state)).length;
+  }
+
+  function isMatchingCard(card, leadPattern, state) {
+    if (leadPattern.suitType === "trump") {
+      return Rules.isTrump(card, state);
+    }
+    return !Rules.isTrump(card, state) && card.suit === leadPattern.suit;
+  }
+
   function isLegalFollow(cards, leadPattern, hand, state) {
     const check = Follow.validateFollowPlay({
       leadPattern,
@@ -336,9 +356,13 @@ window.AI = (function () {
     return groups;
   }
 
+  function suitKeyForCard(card, state) {
+    return Rules.isTrump(card, state) ? "trump" : card.suit;
+  }
+
   function isCardInPair(card, hand, state) {
     const groups = groupBySuitAndRank(hand, state);
-    const suitKey = Rules.isTrump(card, state) ? "trump" : card.suit;
+    const suitKey = suitKeyForCard(card, state);
     const key = `${suitKey}-${card.rank}`;
     return (groups[key]?.length ?? 0) >= 2;
   }
@@ -494,6 +518,140 @@ window.AI = (function () {
   function pickLowestCostNonPointComboFromEnriched(candidates) {
     const nonPoint = candidates.filter(candidate => !candidate.hasPoint);
     return pickLowestCostComboFromEnriched(nonPoint.length ? nonPoint : candidates);
+  }
+
+  function pickPreferredSloughCombo(candidates, leadPattern, hand, state) {
+    const context = buildSloughContext(hand, state);
+    return pickBy(
+      candidates,
+      combo => scoreSloughCombo(combo, leadPattern, state, context),
+      (a, b) => {
+        if (a.sloughMaxPower !== b.sloughMaxPower) return a.sloughMaxPower - b.sloughMaxPower;
+        if (a.sloughPower !== b.sloughPower) return a.sloughPower - b.sloughPower;
+        if (a.tractorBreaks !== b.tractorBreaks) return a.tractorBreaks - b.tractorBreaks;
+        if (a.pairBreaks !== b.pairBreaks) return a.pairBreaks - b.pairBreaks;
+        if (a.sloughTractorPenalty !== b.sloughTractorPenalty) {
+          return a.sloughTractorPenalty - b.sloughTractorPenalty;
+        }
+        if (a.sloughPairPenalty !== b.sloughPairPenalty) {
+          return a.sloughPairPenalty - b.sloughPairPenalty;
+        }
+        if (a.sloughTrumpCount !== b.sloughTrumpCount) return a.sloughTrumpCount - b.sloughTrumpCount;
+        return a.comboPower - b.comboPower;
+      }
+    );
+  }
+
+  function buildSloughContext(hand, state) {
+    const groups = groupBySuitAndRank(hand, state);
+    const pairKeys = new Set();
+    const pairRanksBySuitType = {};
+
+    Object.keys(groups).forEach(key => {
+      if (groups[key].length < 2) return;
+      pairKeys.add(key);
+      const [suitType, rank] = key.split("-");
+      pairRanksBySuitType[suitType] ??= [];
+      pairRanksBySuitType[suitType].push(rank);
+    });
+
+    const tractorRanksBySuitType = {};
+    Object.keys(pairRanksBySuitType).forEach(suitType => {
+      tractorRanksBySuitType[suitType] = detectTractorRanks(pairRanksBySuitType[suitType], suitType, state);
+    });
+
+    return { pairKeys, tractorRanksBySuitType };
+  }
+
+  function detectTractorRanks(pairRanks, suitType, state) {
+    const tractorRanks = new Set();
+    const ranks = Array.from(new Set(pairRanks));
+    if (suitType === "trump" && ranks.includes("BJ") && ranks.includes("SJ")) {
+      tractorRanks.add("BJ");
+      tractorRanks.add("SJ");
+    }
+
+    const order = Pattern.getSequenceOrder(state, suitType === "trump" ? "trump" : "side");
+    const indices = ranks
+      .map(rank => ({ rank, idx: order.indexOf(rank) }))
+      .filter(item => item.idx >= 0)
+      .sort((a, b) => a.idx - b.idx);
+
+    if (!indices.length) {
+      return tractorRanks;
+    }
+
+    let sequence = [indices[0]];
+    for (let i = 1; i < indices.length; i++) {
+      const prev = indices[i - 1];
+      const current = indices[i];
+      if (current.idx === prev.idx + 1) {
+        sequence.push(current);
+      } else {
+        if (sequence.length >= 2) {
+          sequence.forEach(item => tractorRanks.add(item.rank));
+        }
+        sequence = [current];
+      }
+    }
+    if (sequence.length >= 2) {
+      sequence.forEach(item => tractorRanks.add(item.rank));
+    }
+    return tractorRanks;
+  }
+
+  function scoreSloughCombo(combo, leadPattern, state, context) {
+    const sloughCards = combo.filter(card => !isMatchingCard(card, leadPattern, state));
+    const sloughPowers = sloughCards.map(card => Rules.cardPower(card, state));
+    const sloughPower = sloughPowers.reduce((sum, value) => sum + value, 0);
+    const sloughMaxPower = sloughPowers.length ? Math.max(...sloughPowers) : 0;
+    const sloughTrumpCount = sloughCards.filter(card => Rules.isTrump(card, state)).length;
+    const comboPower = combo.reduce((sum, card) => sum + Rules.cardPower(card, state), 0);
+
+    const pairBreaks = sloughCards.filter(card => {
+      const key = `${suitKeyForCard(card, state)}-${card.rank}`;
+      return context.pairKeys.has(key);
+    }).length;
+
+    const tractorBreaks = sloughCards.filter(card => {
+      const suitKey = suitKeyForCard(card, state);
+      return context.tractorRanksBySuitType[suitKey]?.has(card.rank);
+    }).length;
+
+    const sloughPairPenalty = sloughHasPair(sloughCards, state) ? 1 : 0;
+    const sloughTractorPenalty = sloughHasTractor(sloughCards, state) ? 1 : 0;
+
+    return {
+      sloughPower,
+      sloughMaxPower,
+      sloughTrumpCount,
+      comboPower,
+      pairBreaks,
+      tractorBreaks,
+      sloughPairPenalty,
+      sloughTractorPenalty
+    };
+  }
+
+  function sloughHasPair(cards, state) {
+    const groups = groupBySuitAndRank(cards, state);
+    return Object.values(groups).some(group => group.length >= 2);
+  }
+
+  function sloughHasTractor(cards, state) {
+    const groups = groupBySuitAndRank(cards, state);
+    const pairRanksBySuitType = {};
+    Object.keys(groups).forEach(key => {
+      if (groups[key].length < 2) return;
+      const [suitType, rank] = key.split("-");
+      pairRanksBySuitType[suitType] ??= [];
+      pairRanksBySuitType[suitType].push(rank);
+    });
+
+    return Object.keys(pairRanksBySuitType).some(suitType => {
+      const tractorRanks = detectTractorRanks(pairRanksBySuitType[suitType], suitType, state);
+      return tractorRanks.size >= 2;
+    });
   }
 
   function pickHighestPowerComboFromEnriched(candidates) {
