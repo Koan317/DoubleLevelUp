@@ -948,7 +948,7 @@ window.Game = (function () {
         Render.renderKittyOwnerProof(ownerIndex, card);
         setTimeout(() => {
           const trumpSuit = card.suit === "JOKER" ? null : card.suit;
-          applyReveal({ trumpSuit, type: "KITTY_MATCH", power: 0 }, ownerIndex, [], {
+          applyReveal({ trumpSuit, type: "KITTY_MATCH", power: 0 }, ownerIndex, [card], {
             overrideBanker: true
           });
           state.kittyRevealCard = null;
