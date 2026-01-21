@@ -124,6 +124,16 @@ window.Game = (function () {
     return !state.trumpReveal || isHumanBanker();
   }
 
+  function shouldRestrictRevealToBankerTeam() {
+    return state.trumpReveal?.player !== null &&
+      state.trumpReveal?.player !== undefined &&
+      !state.trumpReveal?.reveal;
+  }
+
+  function isPlayerOnBankerTeam(playerIndex) {
+    return state.bankerTeam?.includes(playerIndex);
+  }
+
   function getRevealOptions(phase = state.phase) {
     const isJokerLevel = state.level === "王";
     return {
@@ -187,6 +197,34 @@ window.Game = (function () {
   function getTwistEligiblePlayers() {
     const excluded = state.kittyOwner;
     return [0, 1, 2, 3].filter(index => index !== excluded);
+  }
+
+  function hasRevealForTeam(teamPlayers) {
+    const revealOptions = getRevealOptions();
+    return teamPlayers.some(index => {
+      const hand = state.players[index] || [];
+      return TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)
+        .some(candidate => candidate.reveal);
+    });
+  }
+
+  function swapBankerTeams() {
+    const currentBanker = state.trumpReveal?.player;
+    if (currentBanker === null || currentBanker === undefined) return false;
+    const nextBanker = (currentBanker + 1) % 4;
+    state.trumpReveal = { player: nextBanker, reveal: null };
+    state.trumpSuit = null;
+    state.trumpRevealCards = [];
+    state.bankerTeam = nextBanker % 2 === 0 ? [0, 2] : [1, 3];
+    state.scoreTeam = nextBanker % 2 === 0 ? [1, 3] : [0, 2];
+    state.level = getTeamLevel(getTeamKeyByPlayer(nextBanker));
+    state.lastTwistPlayer = null;
+    state.lastTwistReveal = null;
+    state.initialRevealInfo = null;
+    Render.renderRuleMessage("敌方无法亮主，庄闲互换");
+    Render.renderStatus(state);
+    Render.renderReveal(state);
+    return true;
   }
 
   function getTwistCandidateForPlayer(playerIndex) {
@@ -390,6 +428,9 @@ window.Game = (function () {
         state.kittyVisible = true;
         Render.renderKitty(state);
         if (!state.trumpSuit) {
+          if (shouldRestrictRevealToBankerTeam() && !hasRevealForTeam(state.bankerTeam)) {
+            swapBankerTeams();
+          }
           autoRevealFromAI();
           if (!state.trumpSuit && resolveKittyReveal()) {
             return;
@@ -553,8 +594,10 @@ window.Game = (function () {
   function autoRevealFromAI() {
     let best = state.trumpReveal;
     const revealOptions = getRevealOptions();
+    const restrictToBankerTeam = shouldRestrictRevealToBankerTeam();
 
     for (let index = 1; index < 4; index++) {
+      if (restrictToBankerTeam && !isPlayerOnBankerTeam(index)) continue;
       const hand = state.players[index];
       for (const candidate of TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)) {
         if (!candidate.reveal) continue;
@@ -621,6 +664,10 @@ window.Game = (function () {
   function onHumanReveal(key) {
     if (state.phase !== "reveal" && state.phase !== "twist") return;
     if (!state.revealWindowOpen) return;
+    if (shouldRestrictRevealToBankerTeam() && !isPlayerOnBankerTeam(0)) {
+      Render.renderRuleMessage("禁止替敌方亮主");
+      return;
+    }
     const wasTwistPhase = state.phase === "twist";
     let candidate = null;
     if (isFirstRound() && !state.trumpReveal && TrumpUtils.isSuitKey(key)) {
@@ -1064,6 +1111,11 @@ window.Game = (function () {
     if (!state.revealWindowOpen) return;
     if (state.trumpReveal || !isFirstRound()) {
       state.pendingRevealKey = null;
+      return;
+    }
+    if (shouldRestrictRevealToBankerTeam() && !isPlayerOnBankerTeam(0)) {
+      state.pendingRevealKey = null;
+      Render.renderRuleMessage("禁止替敌方亮主");
       return;
     }
     const candidate = findHumanReveal(state.pendingRevealKey);
