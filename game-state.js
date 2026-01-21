@@ -642,38 +642,20 @@ window.Game = (function () {
     const revealOptions = getRevealOptions();
     const candidates = TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)
       .filter(candidate => candidate.reveal);
-    const byKey = {
-      BJ: [],
-      SJ: [],
-      "♠": [],
-      "♥": [],
-      "♣": [],
-      "♦": []
+    const revealKey = candidate => {
+      const { reveal } = candidate;
+      if (reveal.trumpSuit) return reveal.trumpSuit;
+      if (reveal.type === "DOUBLE_BJ") return "BJ";
+      if (reveal.type === "DOUBLE_SJ") return "SJ";
+      if (reveal.type === "SINGLE_JOKER") return reveal.jokerRank;
+      return null;
     };
 
+    const byKey = Object.fromEntries(["BJ", "SJ", "♠", "♥", "♣", "♦"].map(key => [key, []]));
+
     candidates.forEach(candidate => {
-      const { reveal } = candidate;
-      if (reveal.trumpSuit) {
-        if (byKey[reveal.trumpSuit]) {
-          byKey[reveal.trumpSuit].push(candidate);
-        }
-        return;
-      }
-      if (reveal.type === "DOUBLE_BJ") {
-        byKey.BJ.push(candidate);
-        return;
-      }
-      if (reveal.type === "DOUBLE_SJ") {
-        byKey.SJ.push(candidate);
-        return;
-      }
-      if (reveal.type === "SINGLE_JOKER") {
-        if (reveal.jokerRank === "BJ") {
-          byKey.BJ.push(candidate);
-        } else if (reveal.jokerRank === "SJ") {
-          byKey.SJ.push(candidate);
-        }
-      }
+      const key = revealKey(candidate);
+      if (key && byKey[key]) byKey[key].push(candidate);
     });
 
     const pickCandidate = list => {
