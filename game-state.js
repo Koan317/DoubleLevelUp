@@ -158,7 +158,8 @@ window.Game = (function () {
   }
 
   function renderTrumpActionsWith(options = {}) {
-    Render.renderTrumpActions(buildTrumpActions(), state.phase, onHumanReveal, {
+    const revealLevelOverride = options.revealLevelOverride;
+    Render.renderTrumpActions(buildTrumpActions(revealLevelOverride), state.phase, onHumanReveal, {
       revealOnlyJokers: shouldRevealJokersOnly(),
       ...options
     });
@@ -401,9 +402,15 @@ window.Game = (function () {
         state.kittyVisible = true;
         Render.renderKitty(state);
         if (!state.trumpSuit) {
-          autoRevealFromAI();
-          if (!state.trumpSuit && resolveKittyReveal()) {
-            return;
+          // 若本轮已有预设庄家（上一轮结算决定），按亮主顺位依次尝试亮主；
+          // 若无人亮主，再翻牌定主。
+          if (state.trumpReveal && !state.trumpReveal.reveal) {
+            // 先渲染出发牌后界面，再启动顺位亮主流程
+          } else {
+            autoRevealFromAI();
+            if (!state.trumpSuit && resolveKittyReveal()) {
+              return;
+            }
           }
         }
         state.phase = state.trumpSuit ? "twist" : "reveal";
@@ -416,6 +423,13 @@ window.Game = (function () {
         });
         Render.renderStatus(state);
         Render.renderReveal(state);
+
+        // 预设庄家：严格按“庄家→队友→庄家右手→庄家左手→翻牌”执行亮主顺位
+        if (!state.trumpSuit && state.trumpReveal && !state.trumpReveal.reveal) {
+          startPresetRevealSequence();
+          return;
+        }
+
         if (state.trumpReveal) {
           beginKittyPhase();
         }
@@ -598,6 +612,191 @@ window.Game = (function () {
     }
   }
 
+  // === 亮主顺位（预设庄家）===
+  // 座次索引：0=南，1=西，2=北，3=东（见 ui-render.js）
+  // 右手边：从玩家视角的右侧邻座（逆时针），左手边：顺时针
+  function getRightHandOf(playerIndex) {
+    return (playerIndex + 3) % 4;
+  }
+
+  function getLeftHandOf(playerIndex) {
+    return (playerIndex + 1) % 4;
+  }
+
+  function pickAiRevealForPlayer(playerIndex) {
+    const hand = state.players[playerIndex] || [];
+    const revealOptions = getRevealOptions("reveal");
+    let best = null;
+
+    for (const candidate of TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)) {
+      if (!candidate?.reveal) continue;
+      if (!TrumpUtils.aiRevealAllowed(candidate, revealOptions)) continue;
+
+      // 亮主阶段不允许“越权覆盖”已存在的亮主（此处理论上 currentReveal 为 null）
+      if (state.trumpReveal?.reveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) {
+        continue;
+      }
+
+      const plan = shouldAiReveal(hand, candidate, state.trumpReveal?.reveal);
+      if (!plan) continue;
+
+      const item = { player: playerIndex, cards: candidate.cards, reveal: candidate.reveal, plan };
+      if (!best || betterReveal(item, best)) best = item;
+    }
+
+    return best;
+  }
+
+  function startPresetRevealSequence() {
+    if (state.trumpSuit) return;
+    if (!state.trumpReveal || state.trumpReveal.reveal) return;
+
+    const bankerIndex = state.trumpReveal.player;
+    if (bankerIndex === null || bankerIndex === undefined) return;
+
+    state.phase = "reveal";
+    state.presetReveal = {
+      order: [
+        bankerIndex,
+        (bankerIndex + 2) % 4,
+        // 亮主顺位：庄家 → 队友 → 庄家右手 → 庄家左手 → 翻牌
+        getRightHandOf(bankerIndex),
+        getLeftHandOf(bankerIndex)
+      ],
+      pos: 0
+    };
+
+    runPresetRevealStep();
+  }
+
+  // 亮主顺位阶段等级规则：
+  // - 庄家队(庄家、队友)只能亮“庄家队等级”的主
+  // - 若庄家队两人都未亮主，则闲家队“转为庄家队”获得亮主权，只能亮“闲家队等级”的主
+  function getPresetRevealLevelForPos(pos) {
+    const bankerIndex = state.trumpReveal?.player;
+    if (bankerIndex === null || bankerIndex === undefined) return state.level;
+    const bankerTeamKey = getTeamKeyByPlayer(bankerIndex);
+    const idleTeamKey = bankerTeamKey === "SN" ? "WE" : "SN";
+    // pos: 0=庄家, 1=队友, 2/3=闲家队
+    return pos <= 1 ? getTeamLevel(bankerTeamKey) : getTeamLevel(idleTeamKey);
+  }
+
+  function humanHasRevealOptionForLevel(levelOverride) {
+    const hand = state.players[0] || [];
+    const revealOptions = getRevealOptions("reveal");
+    const candidates = TrumpUtils.findRevealsForHand(hand, levelOverride, revealOptions)
+      .filter(candidate => candidate?.reveal);
+
+    // 亮主阶段：只要存在任一合法亮主候选即可
+    return candidates.some(candidate => {
+      if (!TrumpUtils.canTwistByPlayer({
+        playerIndex: 0,
+        reveal: candidate.reveal,
+        lastTwistPlayer: state.lastTwistPlayer,
+        lastTwistReveal: state.lastTwistReveal
+      })) return false;
+      if (state.trumpReveal?.reveal && !Trump.canOverride(candidate.reveal, state.trumpReveal.reveal)) return false;
+      return true;
+    });
+  }
+
+  function advancePresetRevealAfterBuffer(delayMs = 1000) {
+    const seq = state.presetReveal;
+    if (!seq) return;
+    state.revealWindowOpen = false;
+    renderTrumpActionsWith({ revealWindowOpen: false, allowPendingReveal: false });
+    // 每个顺位之间停 1 秒缓冲（或指定延迟）
+    setTimeout(() => {
+      if (!state.presetReveal) return;
+      seq.pos += 1;
+      runPresetRevealStep();
+    }, delayMs);
+  }
+
+  function runPresetRevealStep() {
+    if (state.trumpSuit) {
+      state.presetReveal = null;
+      clearRevealCountdown();
+      state.revealWindowOpen = false;
+      renderTrumpActionsWith({ revealWindowOpen: false, allowPendingReveal: false });
+      Render.renderStatus(state);
+      Render.renderReveal(state);
+      beginKittyPhase(state.trumpReveal?.player ?? 0);
+      return;
+    }
+
+    const seq = state.presetReveal;
+    if (!seq) return;
+
+    // 所有人都没亮主 → 翻牌定主
+    if (seq.pos >= seq.order.length) {
+      state.presetReveal = null;
+      clearRevealCountdown();
+      resolveKittyReveal();
+      return;
+    }
+
+    const currentPlayer = seq.order[seq.pos];
+
+    // 这一顺位可亮主的等级（庄家队等级 / 闲家队等级）
+    const levelForThisPos = getPresetRevealLevelForPos(seq.pos);
+
+    // 如果亮主权已转移到闲家队（seq.pos >= 2），则该阶段的“亮主等级”应切换为闲家队等级
+    // 注意：这里不要永久修改 state.level，只在判断/找候选时使用 levelForThisPos。
+
+    // 只有“轮到谁”才开亮主窗口（真人）
+    state.revealWindowOpen = (currentPlayer === 0);
+    renderTrumpActionsWith({ revealWindowOpen: state.revealWindowOpen, allowPendingReveal: false, revealLevelOverride: levelForThisPos });
+    Render.renderStatus(state);
+    Render.renderReveal(state);
+
+    // === AI 独享顺位：不给 6 秒倒计时，只给 1 秒缓冲 ===
+    if (currentPlayer !== 0) {
+      // 给玩家 1 秒时间看到“轮到谁”的提示，但不进入 6 秒倒计时
+      setTimeout(() => {
+        if (state.trumpSuit) return;
+        const prevLevel = state.level;
+        state.level = levelForThisPos;
+        const best = pickAiRevealForPlayer(currentPlayer);
+        state.level = prevLevel;
+        if (best?.reveal) {
+          const bankerIndex = state.trumpReveal?.player;
+          const overrideBanker = bankerIndex !== null && bankerIndex !== undefined
+            ? !isSameTeam(currentPlayer, bankerIndex)
+            : false;
+          // 让 applyReveal 用正确的等级去抽取亮主牌
+          state.level = levelForThisPos;
+          applyReveal(best.reveal, currentPlayer, best.cards || [], { overrideBanker });
+          // applyReveal 内部会把 state.level 切到最终庄家队等级，这里不再恢复
+          state.phase = "twist";
+          state.presetReveal = null;
+          clearRevealCountdown();
+          state.revealWindowOpen = false;
+          renderTrumpActionsWith({ revealWindowOpen: false, allowPendingReveal: false });
+          Render.renderStatus(state);
+          Render.renderReveal(state);
+          beginKittyPhase(state.trumpReveal?.player ?? currentPlayer);
+          return;
+        }
+        // AI 没亮主 → 立即进入下一顺位（缓冲已在本顺位开始时给过 1 秒）
+        advancePresetRevealAfterBuffer(0);
+      }, 1000);
+      return;
+    }
+
+    // === 真人独享顺位：若无可操作按钮，跳过倒计时；否则给 6 秒 ===
+    if (!humanHasRevealOptionForLevel(levelForThisPos)) {
+      advancePresetRevealAfterBuffer();
+      return;
+    }
+
+    startRevealCountdown(() => {
+      if (state.trumpSuit) return;
+      advancePresetRevealAfterBuffer();
+    }, 6);
+  }
+
+
   function onHumanSelect(card) {
     if (state.phase === "dealing") return;
     if (state.awaitingNextRound) return;
@@ -635,17 +834,35 @@ window.Game = (function () {
   function onHumanReveal(key) {
     if (state.phase !== "reveal" && state.phase !== "twist") return;
     if (!state.revealWindowOpen) return;
-    if (!canRevealForBankerTeam(0)) {
-      Render.renderRuleMessage("禁止替敌人队亮主");
-      return;
+    if (state.phase === "reveal" && state.presetReveal) {
+      const seq = state.presetReveal;
+      const currentPlayer = seq.order[seq.pos];
+      if (currentPlayer !== 0) return; // 不是你的亮主顺位
+      const bankerIndex = state.trumpReveal?.player;
+      // 在庄家/队友步骤期间，闲家禁止亮主
+      if ((seq.pos === 0 || seq.pos === 1) && bankerIndex !== null && bankerIndex !== undefined && !isSameTeam(0, bankerIndex)) {
+        Render.renderRuleMessage("闲家禁止亮主");
+        return;
+      }
+    } else {
+      // 非顺位亮主模式下：仍保持原限制（用于防止越权亮主）
+      if (!canRevealForBankerTeam(0)) {
+        Render.renderRuleMessage("禁止替敌人队亮主");
+        return;
+      }
     }
     const wasTwistPhase = state.phase === "twist";
+    // 顺位亮主时，需要用“当前应亮的队伍等级”去找候选
+    let effectiveLevel = state.level;
+    if (state.phase === "reveal" && state.presetReveal) {
+      effectiveLevel = getPresetRevealLevelForPos(state.presetReveal.pos);
+    }
     let candidate = null;
     if (isFirstRound() && !state.trumpReveal && TrumpUtils.isSuitKey(key)) {
-      candidate = TrumpUtils.getFirstRoundRevealForSuit(state.players[0] || [], state.level, key);
+      candidate = TrumpUtils.getFirstRoundRevealForSuit(state.players[0] || [], effectiveLevel, key);
     }
     if (!candidate) {
-      candidate = findHumanReveal(key);
+      candidate = findHumanReveal(key, effectiveLevel);
     }
     if (!candidate?.reveal) {
       return;
@@ -663,7 +880,18 @@ window.Game = (function () {
     if (state.trumpReveal && !Trump.canOverride(reveal, state.trumpReveal.reveal)) {
       return;
     }
+    // 让 applyReveal 用正确等级去抽取亮主牌（特别是闲家转庄家阶段）
+    if (effectiveLevel !== state.level) {
+      state.level = effectiveLevel;
+    }
     applyReveal(reveal, 0, revealCards);
+    if (state.phase === "reveal" && state.presetReveal) {
+      // 真人在顺位亮主中成功亮主：结束顺位流程，进入拧主阶段
+      state.presetReveal = null;
+      clearRevealCountdown();
+      state.revealWindowOpen = false;
+      renderTrumpActionsWith({ revealWindowOpen: false, allowPendingReveal: false });
+    }
     state.pendingRevealKey = null;
     if (wasTwistPhase) {
       handleTwistSuccess(0);
@@ -674,11 +902,22 @@ window.Game = (function () {
     beginKittyPhase(state.trumpReveal?.player ?? 0);
   }
 
-  function buildTrumpActions() {
+  function buildTrumpActions(revealLevelOverride = null) {
     const hand = state.players[0] || [];
     const revealOptions = getRevealOptions();
-    const revealBlocked = !canRevealForBankerTeam(0);
-    const candidates = TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)
+    const effectiveLevel = revealLevelOverride ?? state.level;
+
+    // 顺位亮主时：若轮到玩家(南家)且已经进入“闲家转庄家”(pos>=2)，允许亮主，不受原庄家队限制。
+    let revealBlocked = !canRevealForBankerTeam(0);
+    if (state.phase === "reveal" && state.presetReveal) {
+      const seq = state.presetReveal;
+      const currentPlayer = seq.order?.[seq.pos];
+      if (currentPlayer === 0 && seq.pos >= 2) {
+        revealBlocked = false;
+      }
+    }
+
+    const candidates = TrumpUtils.findRevealsForHand(hand, effectiveLevel, revealOptions)
       .filter(candidate => candidate.reveal);
     const revealKey = candidate => {
       const { reveal } = candidate;
@@ -721,8 +960,9 @@ window.Game = (function () {
     ];
   }
 
-  function findHumanReveal(key) {
-    const candidates = TrumpUtils.findRevealsForHand(state.players[0] || [], state.level, getRevealOptions())
+  function findHumanReveal(key, levelOverride = null) {
+    const effectiveLevel = levelOverride ?? state.level;
+    const candidates = TrumpUtils.findRevealsForHand(state.players[0] || [], effectiveLevel, getRevealOptions())
       .filter(candidate => candidate.reveal);
     const matched = candidates.filter(candidate => {
       const { reveal } = candidate;
@@ -744,7 +984,7 @@ window.Game = (function () {
     });
 
     if (!matched.length && isFirstRound()) {
-      return TrumpUtils.getFirstRoundRevealForSuit(state.players[0] || [], state.level, key);
+      return TrumpUtils.getFirstRoundRevealForSuit(state.players[0] || [], effectiveLevel, key);
     }
 
     const sorted = matched.slice().sort((a, b) => b.reveal.power - a.reveal.power);
