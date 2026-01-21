@@ -116,6 +116,17 @@ window.Game = (function () {
     revealCountdownTimer = setTimeout(tick, 1000);
   }
 
+  function isSameTeam(playerIndex, otherIndex) {
+    return getTeamKeyByPlayer(playerIndex) === getTeamKeyByPlayer(otherIndex);
+  }
+
+  function canRevealForBankerTeam(playerIndex) {
+    if (!state.trumpReveal || state.trumpReveal.reveal) return true;
+    const bankerIndex = state.trumpReveal.player;
+    if (bankerIndex === null || bankerIndex === undefined) return true;
+    return isSameTeam(playerIndex, bankerIndex);
+  }
+
   function isHumanBanker() {
     return state.trumpReveal?.player === 0;
   }
@@ -555,6 +566,9 @@ window.Game = (function () {
     const revealOptions = getRevealOptions();
 
     for (let index = 1; index < 4; index++) {
+      if (!canRevealForBankerTeam(index)) {
+        continue;
+      }
       const hand = state.players[index];
       for (const candidate of TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)) {
         if (!candidate.reveal) continue;
@@ -621,6 +635,10 @@ window.Game = (function () {
   function onHumanReveal(key) {
     if (state.phase !== "reveal" && state.phase !== "twist") return;
     if (!state.revealWindowOpen) return;
+    if (!canRevealForBankerTeam(0)) {
+      Render.renderRuleMessage("禁止替敌人队亮主");
+      return;
+    }
     const wasTwistPhase = state.phase === "twist";
     let candidate = null;
     if (isFirstRound() && !state.trumpReveal && TrumpUtils.isSuitKey(key)) {
@@ -659,6 +677,7 @@ window.Game = (function () {
   function buildTrumpActions() {
     const hand = state.players[0] || [];
     const revealOptions = getRevealOptions();
+    const revealBlocked = !canRevealForBankerTeam(0);
     const candidates = TrumpUtils.findRevealsForHand(hand, state.level, revealOptions)
       .filter(candidate => candidate.reveal);
     const revealKey = candidate => {
@@ -693,12 +712,12 @@ window.Game = (function () {
     };
 
     return [
-      { key: "BJ", label: "♛", color: "red", enabled: Boolean(pickCandidate(byKey.BJ)) },
-      { key: "SJ", label: "♚", color: "black", enabled: Boolean(pickCandidate(byKey.SJ)) },
-      { key: "♠", label: "♠", color: "black", enabled: Boolean(pickCandidate(byKey["♠"])) },
-      { key: "♥", label: "♥", color: "red", enabled: Boolean(pickCandidate(byKey["♥"])) },
-      { key: "♣", label: "♣", color: "black", enabled: Boolean(pickCandidate(byKey["♣"])) },
-      { key: "♦", label: "♦", color: "red", enabled: Boolean(pickCandidate(byKey["♦"])) }
+      { key: "BJ", label: "♛", color: "red", enabled: !revealBlocked && Boolean(pickCandidate(byKey.BJ)) },
+      { key: "SJ", label: "♚", color: "black", enabled: !revealBlocked && Boolean(pickCandidate(byKey.SJ)) },
+      { key: "♠", label: "♠", color: "black", enabled: !revealBlocked && Boolean(pickCandidate(byKey["♠"])) },
+      { key: "♥", label: "♥", color: "red", enabled: !revealBlocked && Boolean(pickCandidate(byKey["♥"])) },
+      { key: "♣", label: "♣", color: "black", enabled: !revealBlocked && Boolean(pickCandidate(byKey["♣"])) },
+      { key: "♦", label: "♦", color: "red", enabled: !revealBlocked && Boolean(pickCandidate(byKey["♦"])) }
     ];
   }
 
