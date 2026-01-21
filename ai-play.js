@@ -161,34 +161,29 @@ window.AI = (function () {
 
     if (position === 1) {
       if (leaderIsTeammate) {
-        if (nonBeaters.length) {
-          return pickLowestCostComboFromEnriched(nonBeaters);
+        const pointCombos = nonBeaters.filter(combo => combo.hasPoint);
+        if (pointCombos.length) {
+          return pickHighestScoreComboFromEnriched(pointCombos);
         }
-        return pickLowestCostComboFromEnriched(combos);
+        return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
       }
-      if (beaters.length) {
+      if (beaters.length && shouldWin) {
         if (leadPattern.isTrump) {
-          return pickHighestPowerComboFromEnriched(beaters);
+          return pickLowestCostNonPointComboFromEnriched(beaters);
         }
         const sameSuitBeaters = beaters.filter(combo =>
           !combo.pattern.isTrump && combo.pattern.suit === leadPattern.suit
         );
         if (sameSuitBeaters.length) {
-          return pickHighestPowerComboFromEnriched(sameSuitBeaters);
+          return pickLowestCostNonPointComboFromEnriched(sameSuitBeaters);
         }
         const trumpPointBeaters = beaters.filter(combo => combo.pattern.isTrump && combo.hasPoint);
         if (trumpPointBeaters.length) {
           return pickHighestScoreComboFromEnriched(trumpPointBeaters);
         }
-        return pickHighestPowerComboFromEnriched(beaters);
+        return pickLowestCostNonPointComboFromEnriched(beaters);
       }
-      if (nonBeaters.length && isTeammate(playerIndex, (playerIndex + 2) % 4, state)) {
-        const pointCombos = combos.filter(combo => combo.hasPoint);
-        if (pointCombos.length) {
-          return pickHighestScoreComboFromEnriched(pointCombos);
-        }
-      }
-      return pickLowestCostComboFromEnriched(combos);
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
     }
 
     if (position === 2) {
@@ -197,12 +192,12 @@ window.AI = (function () {
         if (pointCombos.length) {
           return pickHighestScoreComboFromEnriched(pointCombos);
         }
-        return pickLowestCostComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
+        return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
       }
-      if (beaters.length) {
-        return pickLowestCostComboFromEnriched(beaters);
+      if (beaters.length && shouldWin) {
+        return pickLowestCostNonPointComboFromEnriched(beaters);
       }
-      return pickLowestCostComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
     }
 
     if (position === 3) {
@@ -211,28 +206,28 @@ window.AI = (function () {
         if (pointCombos.length) {
           return pickHighestScoreComboFromEnriched(pointCombos);
         }
-        return pickLowestCostComboFromEnriched(combos);
+        return pickLowestCostNonPointComboFromEnriched(combos);
       }
-      if (beaters.length) {
+      if (beaters.length && shouldWin) {
         const trumpStrength = evaluateTrumpStrength(hand, state);
         const shouldTryWin = pointsInTrick >= 10 || endgame || trumpStrength.highCount >= 2;
         if (shouldTryWin) {
-          return pickLowestCostComboFromEnriched(beaters);
+          return pickLowestCostNonPointComboFromEnriched(beaters);
         }
       }
-      return pickLowestCostComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
     }
 
     if (shouldWin && beaters.length) {
-      return pickLowestCostComboFromEnriched(beaters);
+      return pickLowestCostNonPointComboFromEnriched(beaters);
     }
     if (nonBeaters.length) {
-      return pickLowestCostComboFromEnriched(nonBeaters);
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters);
     }
     if (beaters.length) {
-      return pickLowestCostComboFromEnriched(beaters);
+      return pickLowestCostNonPointComboFromEnriched(beaters);
     }
-    return pickLowestCostComboFromEnriched(combos);
+    return pickLowestCostNonPointComboFromEnriched(combos);
   }
 
   function findLegalFollow(hand, leadPattern, state) {
@@ -465,6 +460,11 @@ window.AI = (function () {
       if (a.trumpCount !== b.trumpCount) return a.trumpCount - b.trumpCount;
       return a.power - b.power;
     });
+  }
+
+  function pickLowestCostNonPointComboFromEnriched(candidates) {
+    const nonPoint = candidates.filter(candidate => !candidate.hasPoint);
+    return pickLowestCostComboFromEnriched(nonPoint.length ? nonPoint : candidates);
   }
 
   function pickHighestPowerComboFromEnriched(candidates) {
