@@ -67,29 +67,17 @@ window.AI = (function () {
       }
 
       const sideCards = hand.filter(card => !Rules.isTrump(card, state));
-      const sideTractors = findLeadTractors(sideCards, state);
-      if (sideTractors.length) {
-        return pickSafestCandidate(sideTractors, state, hand);
-      }
-
-      const sidePairs = findLeadPairs(sideCards, state);
-      if (sidePairs.length) {
-        const safePairs = sidePairs.filter(pair =>
-          !likelyBeaten(pair, Pattern.analyzePlay(pair, state), state, hand)
-        );
-        return pickSafestCandidate(safePairs.length ? safePairs : sidePairs, state, hand);
+      const sideLead = pickLeadFrom(sideCards, state, hand);
+      if (sideLead) {
+        return sideLead;
       }
 
       const trumpCards = hand.filter(card => Rules.isTrump(card, state));
       if (trumpCards.length) {
-        const trumpTractors = findLeadTractors(trumpCards, state);
-        if (trumpTractors.length) {
-          return pickSafestCandidate(trumpTractors, state, hand);
+        const trumpLead = pickLeadFrom(trumpCards, state, hand);
+        if (trumpLead) {
+          return trumpLead;
         }
-        const sortedTrump = trumpCards
-          .map(card => ({ card, power: Rules.cardPower(card, state) }))
-          .sort((a, b) => a.power - b.power);
-        return sortedTrump.length ? [sortedTrump[0].card] : [];
       }
     }
 
@@ -99,13 +87,7 @@ window.AI = (function () {
 
     if (shouldPullTrump && !endgame) {
       const trumpCards = hand.filter(card => Rules.isTrump(card, state));
-      const trumpLead = pickPreferredLead(
-        findLeadTractors(trumpCards, state),
-        findLeadPairs(trumpCards, state),
-        trumpCards.map(card => [card]),
-        state,
-        hand
-      );
+      const trumpLead = pickLeadFrom(trumpCards, state, hand);
       if (trumpLead) {
         return trumpLead;
       }
@@ -116,25 +98,13 @@ window.AI = (function () {
       const suitCards = hand.filter(card =>
         !Rules.isTrump(card, state) && card.suit === shortSuit
       );
-      const suitLead = pickPreferredLead(
-        findLeadTractors(suitCards, state),
-        findLeadPairs(suitCards, state),
-        suitCards.map(card => [card]),
-        state,
-        hand
-      );
+      const suitLead = pickLeadFrom(suitCards, state, hand);
       if (suitLead) {
         return suitLead;
       }
     }
 
-    const fallbackLead = pickPreferredLead(
-      findLeadTractors(hand, state),
-      findLeadPairs(hand, state),
-      analyzed.map(item => [item.card]),
-      state,
-      hand
-    );
+    const fallbackLead = pickLeadFrom(analyzed.map(item => item.card), state, hand);
     return fallbackLead || [];
   }
 
@@ -167,79 +137,66 @@ window.AI = (function () {
     const importantTrick = pointsInTrick >= 10 || endgame || (isLastTrick && bottomPoints > 0);
     const shouldWin = !teammateWinning && importantTrick;
 
-    const matchingType = legalCombos.filter(combo =>
-      Pattern.analyzePlay(combo, state).type === leadPattern.type
-    );
-    const combos = matchingType.length ? matchingType : legalCombos;
-    const beaters = combos.filter(combo =>
-      beats(Pattern.analyzePlay(combo, state), leadPattern, state)
-    );
-    const nonBeaters = combos.filter(combo =>
-      !beats(Pattern.analyzePlay(combo, state), leadPattern, state)
-    );
+    const enrichedCombos = enrichCombos(legalCombos, leadPattern, state);
+    const matchingType = enrichedCombos.filter(combo => combo.pattern.type === leadPattern.type);
+    const combos = matchingType.length ? matchingType : enrichedCombos;
+    const beaters = combos.filter(combo => combo.isBeater);
+    const nonBeaters = combos.filter(combo => !combo.isBeater);
 
     if (position === 1) {
       if (beaters.length) {
         if (leadPattern.isTrump) {
-          return pickHighestPowerCombo(beaters, state);
+          return pickHighestPowerComboFromEnriched(beaters);
         }
-        const sameSuitBeaters = beaters.filter(combo => {
-          const pattern = Pattern.analyzePlay(combo, state);
-          return !pattern.isTrump && pattern.suit === leadPattern.suit;
-        });
+        const sameSuitBeaters = beaters.filter(combo =>
+          !combo.pattern.isTrump && combo.pattern.suit === leadPattern.suit
+        );
         if (sameSuitBeaters.length) {
-          return pickHighestPowerCombo(sameSuitBeaters, state);
+          return pickHighestPowerComboFromEnriched(sameSuitBeaters);
         }
-        const trumpPointBeaters = beaters.filter(combo => {
-          const pattern = Pattern.analyzePlay(combo, state);
-          return pattern.isTrump && combo.some(card => Score.cardScore(card) > 0);
-        });
+        const trumpPointBeaters = beaters.filter(combo => combo.pattern.isTrump && combo.hasPoint);
         if (trumpPointBeaters.length) {
-          return pickHighestScoreCombo(trumpPointBeaters, state);
+          return pickHighestScoreComboFromEnriched(trumpPointBeaters);
         }
-        return pickHighestPowerCombo(beaters, state);
+        return pickHighestPowerComboFromEnriched(beaters);
       }
       if (nonBeaters.length && isTeammate(playerIndex, (playerIndex + 2) % 4, state)) {
-        const pointCombos = combos.filter(combo =>
-          combo.some(card => Score.cardScore(card) > 0)
-        );
+        const pointCombos = combos.filter(combo => combo.hasPoint);
         if (pointCombos.length) {
-          return pickHighestScoreCombo(pointCombos, state);
+          return pickHighestScoreComboFromEnriched(pointCombos);
         }
       }
-      return pickLowestCostCombo(combos, state);
+      return pickLowestCostComboFromEnriched(combos);
     }
 
     if (position === 3) {
       if (teammateWinning) {
-        const pointCombos = combos.filter(combo =>
-          combo.some(card => Score.cardScore(card) > 0)
-        );
+        const pointCombos = combos.filter(combo => combo.hasPoint);
         if (pointCombos.length) {
-          return pickHighestScoreCombo(pointCombos, state);
+          return pickHighestScoreComboFromEnriched(pointCombos);
         }
-        return pickLowestCostCombo(combos, state);
+        return pickLowestCostComboFromEnriched(combos);
       }
       if (beaters.length) {
         const trumpStrength = evaluateTrumpStrength(hand, state);
         const shouldTryWin = pointsInTrick >= 10 || endgame || trumpStrength.highCount >= 2;
         if (shouldTryWin) {
-          return pickLowestCostCombo(beaters, state);
+          return pickLowestCostComboFromEnriched(beaters);
         }
       }
-      return pickLowestCostCombo(nonBeaters.length ? nonBeaters : combos, state);
+      return pickLowestCostComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
     }
 
     if (shouldWin && beaters.length) {
-      return pickLowestCostCombo(beaters, state);
+      return pickLowestCostComboFromEnriched(beaters);
     }
     if (nonBeaters.length) {
-      return pickLowestCostCombo(nonBeaters, state);
+      return pickLowestCostComboFromEnriched(nonBeaters);
     }
     if (beaters.length) {
-      return pickLowestCostCombo(beaters, state);
+      return pickLowestCostComboFromEnriched(beaters);
     }
-    return pickLowestCostCombo(combos, state);
+    return pickLowestCostComboFromEnriched(combos);
   }
 
   function findLegalFollow(hand, leadPattern, state) {
@@ -358,6 +315,16 @@ window.AI = (function () {
     return null;
   }
 
+  function pickLeadFrom(cards, state, hand) {
+    return pickPreferredLead(
+      findLeadTractors(cards, state),
+      findLeadPairs(cards, state),
+      cards.map(card => [card]),
+      state,
+      hand
+    );
+  }
+
   function pickSafestCandidate(candidates, state, hand) {
     const scored = candidates.map(cards => {
       const pattern = Pattern.analyzePlay(cards, state);
@@ -374,43 +341,92 @@ window.AI = (function () {
     return scored[0]?.cards || candidates[0];
   }
 
-  function pickLowestCostCombo(candidates, state) {
-    const scored = candidates.map(cards => {
+  function enrichCombos(combos, leadPattern, state) {
+    return combos.map(cards => {
       const pattern = Pattern.analyzePlay(cards, state);
-      const scoreValue = cards.reduce((sum, card) => sum + Score.cardScore(card), 0);
-      const power = pattern.power ?? 0;
+      const score = cards.reduce((sum, card) => sum + Score.cardScore(card), 0);
       const trumpCount = cards.filter(card => Rules.isTrump(card, state)).length;
-      return { cards, scoreValue, power, trumpCount };
+      return {
+        cards,
+        pattern,
+        isBeater: beats(pattern, leadPattern, state),
+        score,
+        power: pattern.power ?? 0,
+        isTrump: pattern.isTrump,
+        hasPoint: score > 0,
+        trumpCount
+      };
     });
-    scored.sort((a, b) => {
-      if (a.scoreValue !== b.scoreValue) return a.scoreValue - b.scoreValue;
-      if (a.trumpCount !== b.trumpCount) return a.trumpCount - b.trumpCount;
-      return a.power - b.power;
-    });
-    return scored[0]?.cards || candidates[0];
+  }
+
+  function pickBy(candidates, scorer, cmp) {
+    const scored = candidates.map(cards => ({ cards, ...scorer(cards) }));
+    scored.sort(cmp);
+    return scored[0]?.cards || candidates[0] || [];
+  }
+
+  function pickLowestCostCombo(candidates, state) {
+    return pickBy(
+      candidates,
+      cards => {
+        const pattern = Pattern.analyzePlay(cards, state);
+        const scoreValue = cards.reduce((sum, card) => sum + Score.cardScore(card), 0);
+        const power = pattern.power ?? 0;
+        const trumpCount = cards.filter(card => Rules.isTrump(card, state)).length;
+        return { scoreValue, power, trumpCount };
+      },
+      (a, b) => {
+        if (a.scoreValue !== b.scoreValue) return a.scoreValue - b.scoreValue;
+        if (a.trumpCount !== b.trumpCount) return a.trumpCount - b.trumpCount;
+        return a.power - b.power;
+      }
+    );
   }
 
   function pickHighestPowerCombo(candidates, state) {
-    const scored = candidates.map(cards => {
-      const pattern = Pattern.analyzePlay(cards, state);
-      const power = pattern.power ?? 0;
-      return { cards, power };
-    });
-    scored.sort((a, b) => b.power - a.power);
-    return scored[0]?.cards || candidates[0];
+    return pickBy(
+      candidates,
+      cards => ({ power: Pattern.analyzePlay(cards, state).power ?? 0 }),
+      (a, b) => b.power - a.power
+    );
   }
 
   function pickHighestScoreCombo(candidates, state) {
-    const scored = candidates.map(cards => {
-      const scoreValue = cards.reduce((sum, card) => sum + Score.cardScore(card), 0);
-      const power = Pattern.analyzePlay(cards, state).power ?? 0;
-      return { cards, scoreValue, power };
+    return pickBy(
+      candidates,
+      cards => ({
+        scoreValue: cards.reduce((sum, card) => sum + Score.cardScore(card), 0),
+        power: Pattern.analyzePlay(cards, state).power ?? 0
+      }),
+      (a, b) => {
+        if (a.scoreValue !== b.scoreValue) return b.scoreValue - a.scoreValue;
+        return b.power - a.power;
+      }
+    );
+  }
+
+  function pickByEnriched(candidates, cmp) {
+    const sorted = candidates.slice().sort(cmp);
+    return sorted[0]?.cards || candidates[0]?.cards || [];
+  }
+
+  function pickLowestCostComboFromEnriched(candidates) {
+    return pickByEnriched(candidates, (a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      if (a.trumpCount !== b.trumpCount) return a.trumpCount - b.trumpCount;
+      return a.power - b.power;
     });
-    scored.sort((a, b) => {
-      if (a.scoreValue !== b.scoreValue) return b.scoreValue - a.scoreValue;
+  }
+
+  function pickHighestPowerComboFromEnriched(candidates) {
+    return pickByEnriched(candidates, (a, b) => b.power - a.power);
+  }
+
+  function pickHighestScoreComboFromEnriched(candidates) {
+    return pickByEnriched(candidates, (a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
       return b.power - a.power;
     });
-    return scored[0]?.cards || candidates[0];
   }
 
   function likelyBeaten(cards, pattern, state, hand) {
