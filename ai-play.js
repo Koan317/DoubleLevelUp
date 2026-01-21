@@ -22,7 +22,7 @@ window.AI = (function () {
       const leadPlay = pickLeadPlay(hand, analyzed, state, playerIndex);
       const leadPatternCheck = Pattern.analyzePlay(leadPlay, state);
       if (leadPatternCheck.type === "throw" && leadPatternCheck.isTrump) {
-        return pickNonTrumpSingle(analyzed);
+        return pickNonTrumpSingle(analyzed, hand, state);
       }
       return leadPlay;
     }
@@ -59,14 +59,27 @@ window.AI = (function () {
     if (isBanker) {
       const preferredRank = state.level === "A" ? "K" : "A";
       const sideHighSingles = hand
-        .filter(card => !Rules.isTrump(card, state) && card.rank === preferredRank)
-        .map(card => [card])
-        .sort((a, b) => Rules.cardPower(a[0], state) - Rules.cardPower(b[0], state));
+        .filter(card =>
+          !Rules.isTrump(card, state) &&
+          card.rank === preferredRank &&
+          !isCardInPair(card, hand, state)
+        )
+        .map(card => [card]);
       if (sideHighSingles.length) {
-        return sideHighSingles[0];
+        return pickHighestPowerCombo(sideHighSingles, state);
       }
 
       const sideCards = hand.filter(card => !Rules.isTrump(card, state));
+      const safeSideTractors = pickSafeCandidates(findLeadTractors(sideCards, state), state, hand);
+      if (safeSideTractors.length) {
+        return pickHighestPowerCombo(safeSideTractors, state);
+      }
+
+      const safeSidePairs = pickSafeCandidates(findLeadPairs(sideCards, state), state, hand);
+      if (safeSidePairs.length) {
+        return pickHighestPowerCombo(safeSidePairs, state);
+      }
+
       const sideLead = pickLeadFrom(sideCards, state, hand);
       if (sideLead) {
         return sideLead;
@@ -74,10 +87,24 @@ window.AI = (function () {
 
       const trumpCards = hand.filter(card => Rules.isTrump(card, state));
       if (trumpCards.length) {
+        const trumpTractors = findLeadTractors(trumpCards, state);
+        if (trumpTractors.length) {
+          return pickHighestPowerCombo(trumpTractors, state);
+        }
         const trumpLead = pickLeadFrom(trumpCards, state, hand);
         if (trumpLead) {
           return trumpLead;
         }
+        return pickLowestPowerSingle(trumpCards, state);
+      }
+    }
+
+    const sideCards = hand.filter(card => !Rules.isTrump(card, state));
+    const safeSideLeads = pickSafeSideLeads(sideCards, state, hand);
+    if (sideCards.length && !safeSideLeads.length) {
+      const trumpCards = hand.filter(card => Rules.isTrump(card, state));
+      if (trumpCards.length) {
+        return pickLowestPowerSingle(trumpCards, state);
       }
     }
 
@@ -108,8 +135,10 @@ window.AI = (function () {
     return fallbackLead || [];
   }
 
-  function pickNonTrumpSingle(analyzed) {
-    const nonTrump = analyzed.filter(item => !item.pattern.isTrump).map(item => [item.card]);
+  function pickNonTrumpSingle(analyzed, hand, state) {
+    const nonTrump = analyzed
+      .filter(item => !item.pattern.isTrump && !isCardInPair(item.card, hand, state))
+      .map(item => [item.card]);
     if (nonTrump.length) {
       return nonTrump[0];
     }
@@ -126,6 +155,8 @@ window.AI = (function () {
     }
 
     const position = state.currentTrick?.length ?? 1;
+    const leaderPlayer = state.currentTrick?.[0]?.player ?? null;
+    const leaderIsTeammate = leaderPlayer !== null && isTeammate(playerIndex, leaderPlayer, state);
     const currentWinner = currentTrickWinner(state);
     const teammateWinning = currentWinner !== null &&
       currentWinner !== playerIndex &&
@@ -144,29 +175,44 @@ window.AI = (function () {
     const nonBeaters = combos.filter(combo => !combo.isBeater);
 
     if (position === 1) {
-      if (beaters.length) {
+      if (leaderIsTeammate) {
+        const pointCombos = nonBeaters.filter(combo => combo.hasPoint);
+        if (pointCombos.length) {
+          return pickHighestScoreComboFromEnriched(pointCombos);
+        }
+        return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
+      }
+      if (beaters.length && shouldWin) {
         if (leadPattern.isTrump) {
-          return pickHighestPowerComboFromEnriched(beaters);
+          return pickLowestCostNonPointComboFromEnriched(beaters);
         }
         const sameSuitBeaters = beaters.filter(combo =>
           !combo.pattern.isTrump && combo.pattern.suit === leadPattern.suit
         );
         if (sameSuitBeaters.length) {
-          return pickHighestPowerComboFromEnriched(sameSuitBeaters);
+          return pickLowestCostNonPointComboFromEnriched(sameSuitBeaters);
         }
         const trumpPointBeaters = beaters.filter(combo => combo.pattern.isTrump && combo.hasPoint);
         if (trumpPointBeaters.length) {
           return pickHighestScoreComboFromEnriched(trumpPointBeaters);
         }
-        return pickHighestPowerComboFromEnriched(beaters);
+        return pickLowestCostNonPointComboFromEnriched(beaters);
       }
-      if (nonBeaters.length && isTeammate(playerIndex, (playerIndex + 2) % 4, state)) {
-        const pointCombos = combos.filter(combo => combo.hasPoint);
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
+    }
+
+    if (position === 2) {
+      if (teammateWinning) {
+        const pointCombos = nonBeaters.filter(combo => combo.hasPoint);
         if (pointCombos.length) {
           return pickHighestScoreComboFromEnriched(pointCombos);
         }
+        return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
       }
-      return pickLowestCostComboFromEnriched(combos);
+      if (beaters.length && shouldWin) {
+        return pickLowestCostNonPointComboFromEnriched(beaters);
+      }
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
     }
 
     if (position === 3) {
@@ -175,28 +221,28 @@ window.AI = (function () {
         if (pointCombos.length) {
           return pickHighestScoreComboFromEnriched(pointCombos);
         }
-        return pickLowestCostComboFromEnriched(combos);
+        return pickLowestCostNonPointComboFromEnriched(combos);
       }
-      if (beaters.length) {
+      if (beaters.length && shouldWin) {
         const trumpStrength = evaluateTrumpStrength(hand, state);
         const shouldTryWin = pointsInTrick >= 10 || endgame || trumpStrength.highCount >= 2;
         if (shouldTryWin) {
-          return pickLowestCostComboFromEnriched(beaters);
+          return pickLowestCostNonPointComboFromEnriched(beaters);
         }
       }
-      return pickLowestCostComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
     }
 
     if (shouldWin && beaters.length) {
-      return pickLowestCostComboFromEnriched(beaters);
+      return pickLowestCostNonPointComboFromEnriched(beaters);
     }
     if (nonBeaters.length) {
-      return pickLowestCostComboFromEnriched(nonBeaters);
+      return pickLowestCostNonPointComboFromEnriched(nonBeaters);
     }
     if (beaters.length) {
-      return pickLowestCostComboFromEnriched(beaters);
+      return pickLowestCostNonPointComboFromEnriched(beaters);
     }
-    return pickLowestCostComboFromEnriched(combos);
+    return pickLowestCostNonPointComboFromEnriched(combos);
   }
 
   function findLegalFollow(hand, leadPattern, state) {
@@ -290,6 +336,13 @@ window.AI = (function () {
     return groups;
   }
 
+  function isCardInPair(card, hand, state) {
+    const groups = groupBySuitAndRank(hand, state);
+    const suitKey = Rules.isTrump(card, state) ? "trump" : card.suit;
+    const key = `${suitKey}-${card.rank}`;
+    return (groups[key]?.length ?? 0) >= 2;
+  }
+
   function groupPairsBySuitType(hand, state) {
     const groups = groupBySuitAndRank(hand, state);
     const result = [];
@@ -339,6 +392,20 @@ window.AI = (function () {
       return a.power - b.power;
     });
     return scored[0]?.cards || candidates[0];
+  }
+
+  function pickSafeCandidates(candidates, state, hand) {
+    return candidates.filter(cards => {
+      const pattern = Pattern.analyzePlay(cards, state);
+      return !likelyBeaten(cards, pattern, state, hand);
+    });
+  }
+
+  function pickSafeSideLeads(sideCards, state, hand) {
+    const tractors = pickSafeCandidates(findLeadTractors(sideCards, state), state, hand);
+    const pairs = pickSafeCandidates(findLeadPairs(sideCards, state), state, hand);
+    const singles = pickSafeCandidates(sideCards.map(card => [card]), state, hand);
+    return [...tractors, ...pairs, ...singles];
   }
 
   function enrichCombos(combos, leadPattern, state) {
@@ -405,6 +472,12 @@ window.AI = (function () {
     );
   }
 
+  function pickLowestPowerSingle(cards, state) {
+    if (!cards.length) return [];
+    const sorted = cards.slice().sort((a, b) => Rules.cardPower(a, state) - Rules.cardPower(b, state));
+    return [sorted[0]];
+  }
+
   function pickByEnriched(candidates, cmp) {
     const sorted = candidates.slice().sort(cmp);
     return sorted[0]?.cards || candidates[0]?.cards || [];
@@ -416,6 +489,11 @@ window.AI = (function () {
       if (a.trumpCount !== b.trumpCount) return a.trumpCount - b.trumpCount;
       return a.power - b.power;
     });
+  }
+
+  function pickLowestCostNonPointComboFromEnriched(candidates) {
+    const nonPoint = candidates.filter(candidate => !candidate.hasPoint);
+    return pickLowestCostComboFromEnriched(nonPoint.length ? nonPoint : candidates);
   }
 
   function pickHighestPowerComboFromEnriched(candidates) {
