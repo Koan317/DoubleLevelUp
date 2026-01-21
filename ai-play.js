@@ -140,6 +140,8 @@ window.AI = (function () {
     }
 
     const position = state.currentTrick?.length ?? 1;
+    const leaderPlayer = state.currentTrick?.[0]?.player ?? null;
+    const leaderIsTeammate = leaderPlayer !== null && isTeammate(playerIndex, leaderPlayer, state);
     const currentWinner = currentTrickWinner(state);
     const teammateWinning = currentWinner !== null &&
       currentWinner !== playerIndex &&
@@ -158,6 +160,12 @@ window.AI = (function () {
     const nonBeaters = combos.filter(combo => !combo.isBeater);
 
     if (position === 1) {
+      if (leaderIsTeammate) {
+        if (nonBeaters.length) {
+          return pickLowestCostComboFromEnriched(nonBeaters);
+        }
+        return pickLowestCostComboFromEnriched(combos);
+      }
       if (beaters.length) {
         if (leadPattern.isTrump) {
           return pickHighestPowerComboFromEnriched(beaters);
@@ -181,6 +189,20 @@ window.AI = (function () {
         }
       }
       return pickLowestCostComboFromEnriched(combos);
+    }
+
+    if (position === 2) {
+      if (teammateWinning) {
+        const pointCombos = nonBeaters.filter(combo => combo.hasPoint);
+        if (pointCombos.length) {
+          return pickHighestScoreComboFromEnriched(pointCombos);
+        }
+        return pickLowestCostComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
+      }
+      if (beaters.length) {
+        return pickLowestCostComboFromEnriched(beaters);
+      }
+      return pickLowestCostComboFromEnriched(nonBeaters.length ? nonBeaters : combos);
     }
 
     if (position === 3) {
