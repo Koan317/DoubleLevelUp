@@ -162,6 +162,18 @@ window.Render = (function () {
     }
   }
 
+  function updateActionButton(button, action, canClick, pendingAllowed) {
+    button.textContent = action.label;
+    button.disabled = !canClick;
+    button.className = "trump-action";
+    if (action.color) {
+      button.classList.add(action.color);
+    }
+    button.classList.toggle("enabled", !!action.enabled);
+    button.classList.toggle("disabled", !action.enabled);
+    button.classList.toggle("pending-allowed", pendingAllowed);
+  }
+
   function renderTrumpActions(actions, phase, onReveal, options = {}) {
     const el = document.getElementById("trump-actions");
     if (!el) return;
@@ -192,20 +204,8 @@ window.Render = (function () {
       }
 
       const canClick = action.enabled || (allowPendingReveal && isRevealKey(action.key));
-      button.textContent = action.label;
-      button.disabled = !canClick;
-      button.className = "trump-action";
-      if (action.color) {
-        button.classList.add(action.color);
-      }
-      if (action.enabled) {
-        button.classList.add("enabled");
-      } else {
-        button.classList.add("disabled");
-        if (allowPendingReveal && isRevealKey(action.key)) {
-          button.classList.add("pending-allowed");
-        }
-      }
+      const pendingAllowed = !action.enabled && allowPendingReveal && isRevealKey(action.key);
+      updateActionButton(button, action, canClick, pendingAllowed);
       button.onclick = canClick ? () => onReveal(action.key) : null;
     });
 
