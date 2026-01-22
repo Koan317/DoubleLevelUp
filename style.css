@@ -128,9 +128,6 @@
     z-index: 5;
 }
 
-.reveal-countdown.hidden {
-    display: none;
-}
 
 #turn-arrow {
     position: absolute;
@@ -142,9 +139,6 @@
     z-index: 5;
 }
 
-.turn-arrow.hidden {
-    display: none;
-}
 
 #banker-badge {
     position: absolute;
@@ -163,9 +157,6 @@
     pointer-events: none;
 }
 
-.banker-badge.hidden {
-    display: none;
-}
 
 .banker-badge.kitty-north {
     top: calc(50% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height) - var(--layout-gap) - var(--badge-height));
@@ -211,9 +202,6 @@
     justify-content: center;
 }
 
-#kitty.hidden {
-    display: none;
-}
 
 #kitty-multiplier {
     position: absolute;
@@ -231,9 +219,6 @@
     z-index: 4;
 }
 
-#kitty-multiplier.hidden {
-    display: none;
-}
 
 .trick-piles {
     position: absolute;
@@ -347,13 +332,6 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
-#trump-actions.hidden {
-    display: none;
-}
-
-#playButton.hidden {
-    display: none;
-}
 
 .trump-action {
     width: 33px;
@@ -407,7 +385,7 @@
     background: rgba(255, 255, 255, 0.95);
 }
 
-#hand-actions > button {
+.action-button {
     padding: 8px 16px;
     border-radius: 999px;
     border: none;
@@ -419,7 +397,7 @@
     font-size: 16px;
 }
 
-#hand-actions > button:hover {
+.action-button:hover {
     background: #f2c94c;
 }
 
@@ -704,9 +682,6 @@
     z-index: 10;
 }
 
-.pile-modal.hidden {
-    display: none;
-}
 
 .pile-modal-content {
     position: relative;

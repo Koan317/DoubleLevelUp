@@ -1,8 +1,21 @@
 ﻿// ui-render.js
 
 window.Render = (function () {
+  const { PLAYER_AREAS, PLAYER_LABELS, REVEAL_PHASES, TRUMP_ACTION_PHASES } = window.UIConstants;
+  const { getById, clear, setHidden, setText } = window.UIDom;
+  const {
+    createCardElement,
+    createCardBackElement,
+    sortHandCards,
+    isSuitKey
+  } = window.CardUI;
+
   const ruleMessages = [];
   const trickPileRotationRange = { min: 5, max: 10 };
+
+  function getArea(playerIndex) {
+    return PLAYER_AREAS[playerIndex];
+  }
 
   function randomTrickPileRotation() {
     const magnitude = trickPileRotationRange.min
@@ -11,8 +24,14 @@ window.Render = (function () {
     return magnitude * sign;
   }
 
+  function clearPlayedSlots() {
+    document.querySelectorAll(".played-slot").forEach(slot => {
+      slot.innerHTML = "";
+    });
+  }
+
   function renderHand(hand, state, onSelect, selectedCards = [], options = {}) {
-    const el = document.getElementById("hand");
+    const el = getById("hand");
     if (!el) return;
     el.innerHTML = "";
     el.classList.toggle("dealing", state.phase === "dealing");
@@ -55,12 +74,12 @@ window.Render = (function () {
   }
 
   function renderTrick(trick, state, options = {}) {
-    document.querySelectorAll(".played-slot").forEach(e => e.innerHTML = "");
+    clearPlayedSlots();
     const animatePlayer = options.animatePlayer ?? null;
     const lastPlay = trick[trick.length - 1];
 
     trick.forEach(t => {
-      const area = ["south","west","north","east"][t.player];
+      const area = getArea(t.player);
       const el = document.querySelector(`.played.${area} .played-slot`);
       if (!el) return;
       const sortedCards = state ? t.cards.slice().sort((a, b) => sortHandCards(a, b, state)) : t.cards;
@@ -75,9 +94,8 @@ window.Render = (function () {
   }
 
   function renderStatus(state) {
-    const playerLabels = ["南家", "西家", "北家", "东家"];
     const banker = state.trumpReveal
-      ? `庄：${playerLabels[state.trumpReveal.player] || "玩家"}`
+      ? `庄：${PLAYER_LABELS[state.trumpReveal.player] || "玩家"}`
       : "庄：未定";
     const isDoubleSuit = state.trumpReveal?.reveal?.type === "ONE_WANG_TWO";
     const suitDisplay = state.trumpSuit
@@ -85,13 +103,16 @@ window.Render = (function () {
       : "无主";
     const mainCard = state.trumpSuit ? `${suitDisplay}${state.level}` : `无主${state.level}`;
     const revealInfo = state.initialRevealInfo
-      ? `亮主：${playerLabels[state.initialRevealInfo.player] || "玩家"}${state.initialRevealInfo.label ? ` ${state.initialRevealInfo.label}` : ""}`
+      ? `亮主：${PLAYER_LABELS[state.initialRevealInfo.player] || "玩家"}${state.initialRevealInfo.label ? ` ${state.initialRevealInfo.label}` : ""}`
       : "亮主：未定";
     const bankerLevel = state.bankerLevel ? state.bankerLevel : state.level;
     const scoreLevel = state.scoreLevel ? state.scoreLevel : state.level;
-    document.getElementById("status").innerText =
-      `主：${mainCard}\n${banker}\n${revealInfo}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
-    const scoreEl = document.getElementById("score-display");
+    const status = getById("status");
+    if (status) {
+      status.innerText =
+        `主：${mainCard}\n${banker}\n${revealInfo}\n南北家等级：${bankerLevel}\n东西家等级：${scoreLevel}`;
+    }
+    const scoreEl = getById("score-display");
     if (scoreEl) {
       scoreEl.textContent = `得分 ${state.score}`;
     }
@@ -100,23 +121,18 @@ window.Render = (function () {
   }
 
   function renderReveal(state) {
-    const isRevealPhase = state.phase === "reveal" || state.phase === "twist" || state.phase === "dealing" || state.phase === "kitty";
-    const areas = ["south", "west", "north", "east"];
+    const isRevealPhase = REVEAL_PHASES.has(state.phase);
     if (!isRevealPhase || !state.trumpReveal) {
       if (!isRevealPhase) {
-        document.querySelectorAll(".played-slot").forEach(e => {
-          e.innerHTML = "";
-        });
+        clearPlayedSlots();
       }
       return;
     }
 
-    document.querySelectorAll(".played-slot").forEach(e => {
-      e.innerHTML = "";
-    });
+    clearPlayedSlots();
 
     const revealPlayer = state.lastTwistPlayer ?? state.trumpReveal.player;
-    const area = areas[revealPlayer];
+    const area = getArea(revealPlayer);
     const el = document.querySelector(`.played.${area} .played-slot`);
     if (!el) return;
     const revealCards = state.trumpRevealCards || [];
@@ -127,7 +143,7 @@ window.Render = (function () {
   }
 
   function renderKitty(state) {
-    const el = document.getElementById("kitty");
+    const el = getById("kitty");
     if (!el) return;
     if (!state.kittyVisible) {
       el.classList.add("hidden");
@@ -178,19 +194,19 @@ window.Render = (function () {
   }
 
   function renderTrumpActions(actions, phase, onReveal, options = {}) {
-    const el = document.getElementById("trump-actions");
+    const el = getById("trump-actions");
     if (!el) return;
     const hasFlag = Object.prototype.hasOwnProperty.call(options, "revealWindowOpen");
     const shouldShow = hasFlag
       ? options.revealWindowOpen
-      : (phase === "reveal" || phase === "twist" || phase === "dealing");
+      : TRUMP_ACTION_PHASES.has(phase);
     const allowPendingReveal = options.allowPendingReveal ?? phase === "dealing";
     const revealJokersOnly = phase === "reveal" && options.revealOnlyJokers;
     const isRevealKey = key => (revealJokersOnly ? (key === "BJ" || key === "SJ") : isSuitKey(key));
     const visibleActions = phase === "reveal"
       ? actions.filter(action => isRevealKey(action.key))
       : actions;
-    el.classList.toggle("hidden", !shouldShow);
+    setHidden(el, !shouldShow);
     if (!shouldShow) return;
 
     const existingButtons = el._actionButtons || new Map();
@@ -222,112 +238,13 @@ window.Render = (function () {
     el._actionButtons = existingButtons;
   }
 
-  function sortHandCards(a, b, state) {
-    const keyA = handSortKey(a, state);
-    const keyB = handSortKey(b, state);
-    const length = Math.max(keyA.length, keyB.length);
-    for (let i = 0; i < length; i += 1) {
-      const diff = (keyA[i] ?? 0) - (keyB[i] ?? 0);
-      if (diff !== 0) return diff;
-    }
-    return 0;
-  }
-
-  function handSortKey(card, state) {
-    const isTrump = Rules.isTrump(card, state);
-    if (isTrump) {
-      if (card.suit === "JOKER") {
-        return [0, card.rank === "BJ" ? 0 : 1, 0, 0];
-      }
-      if (card.rank === state.level) {
-        if (card.suit === state.trumpSuit) {
-          return [1, 0, 0, 0];
-        }
-        return [2, suitIndex(card.suit), 0, 0];
-      }
-      return [3, 0, trumpRankIndex(card, state), 0];
-    }
-    return [4, suitIndex(card.suit), sideRankIndex(card.rank), 0];
-  }
-
-  function suitIndex(suit) {
-    const order = ["♠", "♥", "♣", "♦"];
-    const index = order.indexOf(suit);
-    return index === -1 ? order.length : index;
-  }
-
-  function trumpRankIndex(card, state) {
-    const descendingRanks = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
-    const filtered = descendingRanks.filter(rank => rank !== state.level);
-    const index = filtered.indexOf(card.rank);
-    return index === -1 ? filtered.length : index;
-  }
-
-  function sideRankIndex(rank) {
-    const descendingRanks = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"];
-    const index = descendingRanks.indexOf(rank);
-    return index === -1 ? descendingRanks.length : index;
-  }
-
-  function createCardElement(card) {
-    const el = document.createElement("div");
-    const display = cardDisplay(card);
-    el.className = `card ${display.isRed ? "red" : ""}`.trim();
-
-    const top = document.createElement("div");
-    top.className = "corner top";
-    top.innerHTML = `<span class="rank">${display.rank}</span><br><span class="suit">${display.suit}</span>`;
-    const bottom = document.createElement("div");
-    bottom.className = "corner bottom";
-    bottom.innerHTML = `<span class="rank">${display.rank}</span><br><span class="suit">${display.suit}</span>`;
-    const center = document.createElement("div");
-    center.className = "center";
-    center.textContent = display.center;
-
-    el.appendChild(top);
-    el.appendChild(center);
-    el.appendChild(bottom);
-    return el;
-  }
-
-  function createCardBackElement() {
-    const el = document.createElement("div");
-    el.className = "card back";
-    return el;
-  }
-
-  function cardDisplay(card) {
-    if (card.suit === "JOKER") {
-      const isBigJoker = card.rank === "BJ";
-      const rankName = "JOKER";
-      return {
-        rank: rankName,
-        suit: "",
-        center: "🤡",
-        isRed: isBigJoker
-      };
-    }
-
-    const isRed = card.suit === "♥" || card.suit === "♦";
-    return {
-      rank: card.rank,
-      suit: card.suit,
-      center: card.suit,
-      isRed
-    };
-  }
-
-  function isSuitKey(key) {
-    return key === "♠" || key === "♥" || key === "♣" || key === "♦";
-  }
-
   function animateKittyTransfer(bankerIndex, onComplete, options = {}) {
-    const kitty = document.getElementById("kitty");
+    const kitty = getById("kitty");
     if (!kitty) {
       if (onComplete) onComplete();
       return;
     }
-    const area = ["south", "west", "north", "east"][bankerIndex];
+    const area = getArea(bankerIndex);
     const target = document.querySelector(`.${area}`);
     if (!target) {
       if (onComplete) onComplete();
@@ -352,14 +269,14 @@ window.Render = (function () {
   }
 
   function renderBankerBadge(state) {
-    const badge = document.getElementById("banker-badge");
+    const badge = getById("banker-badge");
     if (!badge) return;
     const hideBadge = target => {
       target.className = "banker-badge hidden";
       target.textContent = "";
     };
-    const table = document.getElementById("table");
-    const area = state.trumpReveal ? ["south", "west", "north", "east"][state.trumpReveal.player] : null;
+    const table = getById("table");
+    const area = state.trumpReveal ? getArea(state.trumpReveal.player) : null;
     if (!area || !table) return hideBadge(badge);
 
     const tableRect = table.getBoundingClientRect();
@@ -393,7 +310,7 @@ window.Render = (function () {
   }
 
   function animateKittyReturn(onComplete) {
-    const kitty = document.getElementById("kitty");
+    const kitty = getById("kitty");
     if (!kitty) {
       if (onComplete) onComplete();
       return;
@@ -418,21 +335,21 @@ window.Render = (function () {
   }
 
   function renderCountdown(countdownValue) {
-    const el = document.getElementById("reveal-countdown");
+    const el = getById("reveal-countdown");
     if (!el) return;
     if (countdownValue === null || countdownValue === undefined) {
-      el.classList.add("hidden");
-      el.textContent = "";
+      setHidden(el, true);
+      setText(el, "");
       return;
     }
-    el.textContent = countdownValue.toString();
-    el.classList.remove("hidden");
+    setText(el, countdownValue.toString());
+    setHidden(el, false);
   }
 
   function renderTurnArrow(playerIndex) {
-    const table = document.getElementById("table");
+    const table = getById("table");
     if (!table) return;
-    let arrow = document.getElementById("turn-arrow");
+    let arrow = getById("turn-arrow");
     if (!arrow) {
       arrow = document.createElement("div");
       arrow.id = "turn-arrow";
@@ -441,13 +358,13 @@ window.Render = (function () {
       table.appendChild(arrow);
     }
     if (playerIndex === null || playerIndex === undefined) {
-      arrow.classList.add("hidden");
+      setHidden(arrow, true);
       return;
     }
-    const area = ["south", "west", "north", "east"][playerIndex];
+    const area = getArea(playerIndex);
     const target = document.querySelector(`.${area}`);
     if (!target) {
-      arrow.classList.add("hidden");
+      setHidden(arrow, true);
       return;
     }
     const tableRect = table.getBoundingClientRect();
@@ -483,11 +400,11 @@ window.Render = (function () {
     arrow.style.top = `${top}px`;
     arrow.style.left = `${left}px`;
     arrow.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
-    arrow.classList.remove("hidden");
+    setHidden(arrow, false);
   }
 
   function renderRuleMessage(message) {
-    const el = document.getElementById("rule-message");
+    const el = getById("rule-message");
     if (!el) return;
     if (message === null || message === undefined || message === "") {
       return;
@@ -515,15 +432,15 @@ window.Render = (function () {
   }
 
   function renderKittyMultiplier(multiplier, visible) {
-    const el = document.getElementById("kitty-multiplier");
+    const el = getById("kitty-multiplier");
     if (!el) return;
     if (!visible) {
-      el.classList.add("hidden");
-      el.textContent = "";
+      setHidden(el, true);
+      setText(el, "");
       return;
     }
-    el.textContent = `×${multiplier ?? 0}`;
-    el.classList.remove("hidden");
+    setText(el, `×${multiplier ?? 0}`);
+    setHidden(el, false);
   }
 
   function renderTrickPiles(state, onPileClick) {
@@ -547,7 +464,7 @@ window.Render = (function () {
   }
 
   function renderKittyOwnerProof(playerIndex, card) {
-    const area = ["south","west","north","east"][playerIndex];
+    const area = getArea(playerIndex);
     const el = document.querySelector(`.${area}`);
     if (!el) return;
     let slot = el.querySelector(".kitty-proof-slot");
@@ -569,10 +486,10 @@ window.Render = (function () {
   }
 
   function showPileModal(playerIndex, state) {
-    const modal = document.getElementById("pile-modal");
+    const modal = getById("pile-modal");
     const body = modal?.querySelector(".pile-modal-body");
     if (!modal || !body) return;
-    body.innerHTML = "";
+    clear(body);
     const history = state.trickHistory?.[playerIndex] || [];
     history.forEach((entry, index) => {
       const item = document.createElement("div");
@@ -595,17 +512,17 @@ window.Render = (function () {
       item.appendChild(cards);
       body.appendChild(item);
     });
-    modal.classList.remove("hidden");
+    setHidden(modal, false);
   }
 
   function hidePileModal() {
-    const modal = document.getElementById("pile-modal");
+    const modal = getById("pile-modal");
     if (!modal) return;
-    modal.classList.add("hidden");
+    setHidden(modal, true);
   }
 
   function bindPileModalHandlers() {
-    const modal = document.getElementById("pile-modal");
+    const modal = getById("pile-modal");
     if (!modal || modal.dataset.bound) return;
     const closeButton = modal.querySelector(".pile-modal-close");
     if (closeButton) {
@@ -620,27 +537,27 @@ window.Render = (function () {
   }
 
   function setPlayButtonEnabled(enabled) {
-    const button = document.getElementById("playButton");
+    const button = getById("playButton");
     if (!button) return;
     button.disabled = !enabled;
   }
 
   function setPlayButtonVisible(visible) {
-    const button = document.getElementById("playButton");
+    const button = getById("playButton");
     if (!button) return;
-    button.classList.toggle("hidden", !visible);
+    setHidden(button, !visible);
   }
 
   function setPlayButtonLabel(label) {
-    const button = document.getElementById("playButton");
+    const button = getById("playButton");
     if (!button) return;
     button.textContent = label;
   }
 
   function setNextRoundButtonVisible(visible) {
-    const button = document.getElementById("nextRoundButton");
+    const button = getById("nextRoundButton");
     if (!button) return;
-    button.classList.toggle("hidden", !visible);
+    setHidden(button, !visible);
   }
 
   return {
