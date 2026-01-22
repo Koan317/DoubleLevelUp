@@ -4,16 +4,19 @@
 
   function cardScore(card) {
     if (card.rank === "5") return 5;
-    if (card.rank === "10" || card.rank === "K") return 10;
-    return 0;
+    return card.rank === "10" || card.rank === "K" ? 10 : 0;
+  }
+
+  function sumScore(cards = []) {
+    return cards.reduce((s, c) => s + cardScore(c), 0);
   }
 
   function totalBottomScore(cards) {
-    return cards.reduce((s, c) => s + cardScore(c), 0);
+    return sumScore(cards);
   }
 
   function totalTrickScore(cards) {
-    return cards.reduce((s, c) => s + cardScore(c), 0);
+    return sumScore(cards);
   }
 
   /**
@@ -39,12 +42,13 @@
       if (pairRanks.length === 0) return 2;
 
       // 判断拖拉机
-      const tractors = Tractor.detectTractors(
-        pairRanks.map(r => ({ rank: r })),
-        level
-      );
+      const tractors = typeof Tractor?.detectTractors === "function"
+        ? Tractor.detectTractors(pairRanks.map(r => ({ rank: r })), level)
+        : [];
 
-      if (!tractors.length) return 4;
+      if (!tractors.length) {
+        return 4;
+      }
 
       const maxPairs = Math.max(...tractors.map(t => t.length));
       return Math.pow(2, maxPairs) * 2;
