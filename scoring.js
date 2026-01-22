@@ -20,14 +20,15 @@
   }
 
   /**
-   * 根据“最后一回合赢家出的牌型”算倍率
+   * 根据“最后一回合首家出的牌型”算倍率
    */
   function calcMultiplierByWinningPlay(pattern, level) {
     // 普通牌型
     if (pattern.type === "single") return 2;
     if (pattern.type === "pair") return 4;
     if (pattern.type === "tractor") {
-      return Math.pow(2, pattern.length / 2) * 2;
+      const pairs = pattern.length / 2;
+      return Math.pow(2, pairs + 1);
     }
 
     // 甩牌
@@ -51,7 +52,7 @@
       }
 
       const maxPairs = Math.max(...tractors.map(t => t.length));
-      return Math.pow(2, maxPairs) * 2;
+      return Math.pow(2, maxPairs + 1);
     }
 
     return 2;

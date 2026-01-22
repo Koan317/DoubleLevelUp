@@ -1546,9 +1546,9 @@ window.Game = (function () {
       state.currentTrick,
       state
     );
-    const winningPlay = state.currentTrick.find(play => play.player === winner);
-    const winningPattern = winningPlay
-      ? { ...winningPlay.pattern, cards: winningPlay.cards }
+    const leadPlay = state.currentTrick[0] || null;
+    const leadPattern = leadPlay
+      ? { ...leadPlay.pattern, cards: leadPlay.cards }
       : null;
     const trickCards = state.currentTrick.flatMap(play => play.cards);
     if (state.scoreTeam.includes(winner)) {
@@ -1582,7 +1582,7 @@ window.Game = (function () {
     Render.setPlayButtonEnabled(winner === 0);
     Render.setPlayButtonVisible(true);
     if (isLastTrick) {
-      settleRound({ winner, winningPattern });
+      settleRound({ winner, leadPattern });
       return;
     }
     if (winner !== 0) {
@@ -1590,11 +1590,11 @@ window.Game = (function () {
     }
   }
 
-  function settleRound({ winner, winningPattern }) {
+  function settleRound({ winner, leadPattern }) {
     const lastTrickWinnerIsScorer = state.scoreTeam.includes(winner);
     const bottomMultiplier = lastTrickWinnerIsScorer
       ? Bottom.calcMultiplierByWinningPlay(
-          winningPattern || { type: "single", length: 1, cards: [] },
+          leadPattern || { type: "single", length: 1, cards: [] },
           state.level
         )
       : 0;
@@ -1607,7 +1607,7 @@ window.Game = (function () {
     const bottomScore = Bottom.settleBottom({
       bottomCards: state.kitty,
       lastTrickWinnerIsScorer,
-      winningPattern: winningPattern || { type: "single", length: 1, cards: [] },
+      winningPattern: leadPattern || { type: "single", length: 1, cards: [] },
       level: state.level
     });
     if (bottomScore) {
