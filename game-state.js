@@ -89,6 +89,19 @@ window.Game = (function () {
     }
   }
 
+  function clearSavedLevels() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      // ignore storage errors
+    }
+    state.bankerLevel = null;
+    state.scoreLevel = null;
+    state.nextBankerIndex = null;
+    Render.renderRuleMessage("存档已清除");
+    Render.renderStatus(state);
+  }
+
   function clearRevealCountdown() {
     if (revealCountdownTimer) {
       clearTimeout(revealCountdownTimer);
@@ -1634,6 +1647,7 @@ window.Game = (function () {
   return {
     startGame,
     startNextRound,
+    clearSavedLevels,
     playSelected: onHumanPlaySelected,
     state
   };

@@ -15,4 +15,9 @@ if (nextRoundButton) {
   nextRoundButton.onclick = () => Game.startNextRound();
 }
 
+const clearSaveButton = document.getElementById("clearSaveButton");
+if (clearSaveButton) {
+  clearSaveButton.onclick = () => Game.clearSavedLevels();
+}
+
 Game.startGame();
