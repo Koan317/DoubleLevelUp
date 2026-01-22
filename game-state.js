@@ -1536,12 +1536,6 @@ window.Game = (function () {
   }
 
   function finishTrick() {
-    const trickLog = state.currentTrick.map(play => ({
-      player: play.player,
-      label: playerLabels[play.player] || `玩家${play.player}`,
-      cards: play.cards.map(formatCardForLog)
-    }));
-    console.log("本回合出牌", trickLog);
     const winner = Compare.compareTrickPlays(
       state.currentTrick,
       state
@@ -1592,23 +1586,12 @@ window.Game = (function () {
 
   function settleRound({ winner, leadPattern }) {
     const lastTrickWinnerIsScorer = state.scoreTeam.includes(winner);
-    const bottomMultiplier = lastTrickWinnerIsScorer
-      ? Bottom.calcMultiplierByWinningPlay(
-          leadPattern || { type: "single", length: 1, cards: [] },
-          state.level
-        )
-      : 0;
-    console.log("回合结束信息", {
-      lastTrickWinner: playerLabels[winner] || `玩家${winner}`,
-      bottomCards: state.kitty.map(formatCardForLog),
-      isKouDi: lastTrickWinnerIsScorer,
-      bottomMultiplier
-    });
+    const roundLevel = state.level;
     const bottomScore = Bottom.settleBottom({
       bottomCards: state.kitty,
       lastTrickWinnerIsScorer,
       winningPattern: leadPattern || { type: "single", length: 1, cards: [] },
-      level: state.level
+      level: roundLevel
     });
     if (bottomScore) {
       state.score += bottomScore;
@@ -1650,7 +1633,12 @@ window.Game = (function () {
     state.currentTrick = [];
     state.phase = "settle";
     state.kittyRevealed = true;
-    state.kittyMultiplier = lastTrickWinnerIsScorer ? bottomMultiplier : 0;
+    state.kittyMultiplier = lastTrickWinnerIsScorer
+      ? Bottom.calcMultiplierByWinningPlay(
+          leadPattern || { type: "single", length: 1, cards: [] },
+          roundLevel
+        )
+      : 0;
     state.kittyVisible = true;
     Render.setPlayButtonEnabled(false);
     Render.renderStatus(state);
