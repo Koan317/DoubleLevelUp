@@ -632,6 +632,44 @@
     border-left: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.sidebar-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.sidebar-action-button {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #0d0b14;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(236, 246, 255, 0.75)),
+        linear-gradient(135deg, rgba(255, 204, 125, 0.6), rgba(161, 134, 255, 0.6));
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.sidebar-action-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    filter: brightness(1.05);
+}
+
+.sidebar-action-button:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.sidebar-action-button:focus-visible {
+    outline: 2px solid rgba(255, 240, 196, 0.9);
+    outline-offset: 2px;
+}
+
 .score-display {
     padding: 16px;
     border-radius: 16px;
