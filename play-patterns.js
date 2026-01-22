@@ -3,6 +3,11 @@
 (function () {
 
   const BASE_ORDER = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+  const ORDER_CACHE = Object.create(null);
+  const BASE_RANK_INDEX = Object.create(null);
+  BASE_ORDER.forEach((rank, index) => {
+    BASE_RANK_INDEX[rank] = index;
+  });
 
   function normalizeTrumpInfo(trumpInfoOrLevel) {
     if (typeof trumpInfoOrLevel === "string") {
@@ -21,8 +26,12 @@
   }
 
   function getSequenceOrder(trumpInfo, suitType = "trump") {
-    if (suitType === "side") return [...BASE_ORDER];
-    return BASE_ORDER.filter(r => r !== trumpInfo.level);
+    if (suitType === "side") return BASE_ORDER;
+    const key = `${suitType}|${trumpInfo?.level ?? ""}`;
+    if (!ORDER_CACHE[key]) {
+      ORDER_CACHE[key] = BASE_ORDER.filter(r => r !== trumpInfo.level);
+    }
+    return ORDER_CACHE[key];
   }
 
   function isJokerTractorRanks(pairRanks) {
@@ -47,8 +56,15 @@
     }
 
     const order = getSequenceOrder(trumpInfo, suitType);
+    const rankIndex = Object.create(null);
+    order.forEach((rank, index) => {
+      rankIndex[rank] = index;
+    });
     const sorted = pairs
-      .map(pair => ({ pair, idx: order.indexOf(pair.rank) }))
+      .map(pair => ({
+        pair,
+        idx: rankIndex[pair.rank] ?? -1
+      }))
       .filter(item => item.idx >= 0)
       .sort((a, b) => a.idx - b.idx)
       .map(item => item.pair);
@@ -60,10 +76,10 @@
 
     for (let i = 1; i < sorted.length; i++) {
       const prev = current[current.length - 1];
-      if (order.indexOf(prev.rank) + 1 === order.indexOf(sorted[i].rank)) {
+      if (rankIndex[prev.rank] + 1 === rankIndex[sorted[i].rank]) {
         current.push(sorted[i]);
       } else {
-        if (current.length >= 2) tractors.push([...current]);
+        if (current.length >= 2) tractors.push(current);
         current = [sorted[i]];
       }
     }
@@ -79,6 +95,7 @@
 
     const mapped = cards.map(c => ({
       ...c,
+      card: c,
       isTrump: Rules.isTrump(c, trumpInfo),
       normRank: normalizeRank(c),
       power: Rules.cardPower(c, trumpInfo)
@@ -151,7 +168,8 @@
 
       mainRank,
       power: rankPowers[mainRank] ?? 0,
-      compareValue: rankPowers[mainRank] ?? 0
+      compareValue: rankPowers[mainRank] ?? 0,
+      cards
     };
   }
 
@@ -189,7 +207,7 @@
         if (powerDiff !== 0) return powerDiff;
         const aRank = parseGroupKey(a).rank;
         const bRank = parseGroupKey(b).rank;
-        return BASE_ORDER.indexOf(bRank) - BASE_ORDER.indexOf(aRank);
+        return (BASE_RANK_INDEX[bRank] ?? -1) - (BASE_RANK_INDEX[aRank] ?? -1);
       })[0];
   }
 
@@ -207,8 +225,12 @@
     if (suit === "JOKER") return isJokerTractorRanks(pairRanks);
 
     const order = getSequenceOrder(trumpInfo, suitType);
+    const rankIndex = Object.create(null);
+    order.forEach((rank, index) => {
+      rankIndex[rank] = index;
+    });
     const idxs = pairRanks
-      .map(r => order.indexOf(r.rank))
+      .map(r => rankIndex[r.rank] ?? -1)
       .sort((a,b)=>a-b);
 
     if (idxs.some(i => i < 0)) return false;
