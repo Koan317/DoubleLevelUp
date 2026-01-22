@@ -692,6 +692,9 @@ window.Game = (function () {
     const bankerIndex = state.trumpReveal.player;
     if (bankerIndex === null || bankerIndex === undefined) return;
 
+    const bankerTeamKey = getTeamKeyByPlayer(bankerIndex);
+    const idleTeamKey = bankerTeamKey === "SN" ? "WE" : "SN";
+
     state.phase = "reveal";
     state.presetReveal = {
       order: [
@@ -701,7 +704,10 @@ window.Game = (function () {
         getRightHandOf(bankerIndex),
         getLeftHandOf(bankerIndex)
       ],
-      pos: 0
+      pos: 0,
+      bankerTeamKey,
+      idleTeamKey,
+      bankerSwapDone: false
     };
 
     runPresetRevealStep();
@@ -711,12 +717,10 @@ window.Game = (function () {
   // - 庄家队(庄家、队友)只能亮“庄家队等级”的主
   // - 若庄家队两人都未亮主，则闲家队“转为庄家队”获得亮主权，只能亮“闲家队等级”的主
   function getPresetRevealLevelForPos(pos) {
-    const bankerIndex = state.trumpReveal?.player;
-    if (bankerIndex === null || bankerIndex === undefined) return state.level;
-    const bankerTeamKey = getTeamKeyByPlayer(bankerIndex);
-    const idleTeamKey = bankerTeamKey === "SN" ? "WE" : "SN";
-    // pos: 0=庄家, 1=队友, 2/3=闲家队
-    return pos <= 1 ? getTeamLevel(bankerTeamKey) : getTeamLevel(idleTeamKey);
+    const seq = state.presetReveal;
+    if (!seq) return state.level;
+    // pos: 0=庄家, 1=队友, 2/3=原闲家队（在庄家队两人都不能亮主后，将变为新庄家队）
+    return pos <= 1 ? getTeamLevel(seq.bankerTeamKey) : getTeamLevel(seq.idleTeamKey);
   }
 
   function humanHasRevealOptionForLevel(levelOverride) {
@@ -747,6 +751,29 @@ window.Game = (function () {
     setTimeout(() => {
       if (!state.presetReveal) return;
       seq.pos += 1;
+
+      // 规则变更：
+      // - 原庄家队两人（庄家+队友）都不能亮主：庄闲立即互换，庄家角色置空
+      if (!state.trumpSuit && seq.pos === 2 && !seq.bankerSwapDone) {
+        seq.bankerSwapDone = true;
+
+        // 交换两队（仅用于显示/规则约束），并清空庄家角色
+        const oldBankerTeam = state.bankerTeam.slice();
+        state.bankerTeam = state.scoreTeam.slice();
+        state.scoreTeam = oldBankerTeam;
+
+        // 当前局主级别切换为“新庄家队等级”
+        if (state.bankerTeam.length) {
+          state.level = getTeamLevel(getTeamKeyByPlayer(state.bankerTeam[0]));
+        }
+
+        // 庄家角色置空：让后续成功亮主者成为庄家
+        state.trumpReveal = { player: null, reveal: null };
+        Render.renderRuleMessage("原庄家队无人亮主，庄闲互换");
+        Render.renderStatus(state);
+        Render.renderReveal(state);
+      }
+
       runPresetRevealStep();
     }, delayMs);
   }
@@ -771,6 +798,15 @@ window.Game = (function () {
     if (seq.pos >= seq.order.length) {
       state.presetReveal = null;
       clearRevealCountdown();
+
+      // 规则变更：新庄家队也不能亮主 → 两队与庄家角色全部置空，然后翻牌定主
+      state.bankerTeam = [];
+      state.scoreTeam = [];
+      state.trumpReveal = null;
+      state.trumpSuit = null;
+      state.trumpRevealCards = [];
+      state.nextBankerIndex = null;
+
       resolveKittyReveal();
       renderTurnArrowForState();
       return;
@@ -804,9 +840,9 @@ window.Game = (function () {
         state.level = prevLevel;
         if (best?.reveal) {
           const bankerIndex = state.trumpReveal?.player;
-          const overrideBanker = bankerIndex !== null && bankerIndex !== undefined
-            ? !isSameTeam(currentPlayer, bankerIndex)
-            : false;
+          // 顺位亮主阶段：当轮到原闲家队（pos>=2）亮主时，成功亮主者必须成为庄家；
+          // 若庄家角色已置空，同样必须由成功亮主者成为庄家。
+          const overrideBanker = seq.pos >= 2 || bankerIndex === null || bankerIndex === undefined;
           // 让 applyReveal 用正确的等级去抽取亮主牌
           state.level = levelForThisPos;
           applyReveal(best.reveal, currentPlayer, best.cards || [], { overrideBanker });
@@ -928,7 +964,9 @@ window.Game = (function () {
     if (effectiveLevel !== state.level) {
       state.level = effectiveLevel;
     }
-    applyReveal(reveal, 0, revealCards);
+    const shouldOverrideBanker = (state.phase === "reveal" && state.presetReveal && state.presetReveal.pos >= 2) ||
+      (state.phase === "reveal" && state.presetReveal && (state.trumpReveal?.player === null || state.trumpReveal?.player === undefined));
+    applyReveal(reveal, 0, revealCards, { overrideBanker: shouldOverrideBanker });
     if (state.phase === "reveal" && state.presetReveal) {
       // 真人在顺位亮主中成功亮主：结束顺位流程，进入拧主阶段
       state.presetReveal = null;
