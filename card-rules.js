@@ -3,6 +3,11 @@
 (function () {
 
   const RANKS = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+  const RANK_VALUE = Object.create(null);
+
+  for (let i = 0; i < RANKS.length; i++) {
+    RANK_VALUE[RANKS[i]] = i;
+  }
 
   function isTrump(card, state) {
     if (card.suit === "JOKER") return true;
@@ -13,7 +18,7 @@
   }
 
   function rankValue(rank) {
-    return RANKS.indexOf(rank);
+    return RANK_VALUE[rank] ?? -1;
   }
 
   function cardPower(card, state) {

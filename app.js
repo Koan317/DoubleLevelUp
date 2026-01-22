@@ -4,24 +4,18 @@ if (window.UIDom?.buildTableStaticDOM) {
   window.UIDom.buildTableStaticDOM();
 }
 
-document.getElementById("themeToggle").onclick = () => {
+function bindClick(id, handler) {
+  const el = document.getElementById(id);
+  if (el) el.onclick = handler;
+}
+
+bindClick("themeToggle", () => {
   document.body.classList.toggle("dark");
   document.body.classList.toggle("light");
-};
+});
 
-const playButton = document.getElementById("playButton");
-if (playButton) {
-  playButton.onclick = () => Game.playSelected();
-}
-
-const nextRoundButton = document.getElementById("nextRoundButton");
-if (nextRoundButton) {
-  nextRoundButton.onclick = () => Game.startNextRound();
-}
-
-const clearSaveButton = document.getElementById("clearSaveButton");
-if (clearSaveButton) {
-  clearSaveButton.onclick = () => Game.clearSavedLevels();
-}
+bindClick("playButton", () => Game.playSelected());
+bindClick("nextRoundButton", () => Game.startNextRound());
+bindClick("clearSaveButton", () => Game.clearSavedLevels());
 
 Game.startGame();
