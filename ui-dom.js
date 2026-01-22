@@ -21,36 +21,43 @@ window.UIDom = (function () {
     }
   };
 
+  const makeDiv = className => {
+    const element = document.createElement("div");
+    if (className) {
+      element.className = className;
+    }
+    return element;
+  };
+
   const buildTableStaticDOM = () => {
     const playedAreas = getById("played-areas");
     if (playedAreas) {
       playedAreas.innerHTML = "";
       ["north", "west", "east", "south"].forEach(area => {
-        const wrapper = document.createElement("div");
-        wrapper.className = `played ${area}`;
-        const slot = document.createElement("div");
-        slot.className = "played-slot";
+        const wrapper = makeDiv(`played ${area}`);
+        const slot = makeDiv("played-slot");
         wrapper.appendChild(slot);
         playedAreas.appendChild(wrapper);
       });
     }
 
     const trickPiles = getById("trick-piles");
-    if (trickPiles) {
-      trickPiles.innerHTML = "";
-      const mappings = [
-        { area: "north", player: 2 },
-        { area: "west", player: 3 },
-        { area: "east", player: 1 },
-        { area: "south", player: 0 }
-      ];
-      mappings.forEach(({ area, player }) => {
-        const pile = document.createElement("div");
-        pile.className = `trick-pile ${area}`;
-        pile.dataset.player = player.toString();
-        trickPiles.appendChild(pile);
-      });
+    if (!trickPiles) {
+      return;
     }
+
+    trickPiles.innerHTML = "";
+    const mappings = [
+      { area: "south", player: 0 },
+      { area: "west", player: 1 },
+      { area: "north", player: 2 },
+      { area: "east", player: 3 }
+    ];
+    mappings.forEach(({ area, player }) => {
+      const pile = makeDiv(`trick-pile ${area}`);
+      pile.dataset.player = player.toString();
+      trickPiles.appendChild(pile);
+    });
   };
 
   return {

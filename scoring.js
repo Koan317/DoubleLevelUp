@@ -4,27 +4,31 @@
 
   function cardScore(card) {
     if (card.rank === "5") return 5;
-    if (card.rank === "10" || card.rank === "K") return 10;
-    return 0;
+    return card.rank === "10" || card.rank === "K" ? 10 : 0;
+  }
+
+  function sumScore(cards = []) {
+    return cards.reduce((s, c) => s + cardScore(c), 0);
   }
 
   function totalBottomScore(cards) {
-    return cards.reduce((s, c) => s + cardScore(c), 0);
+    return sumScore(cards);
   }
 
   function totalTrickScore(cards) {
-    return cards.reduce((s, c) => s + cardScore(c), 0);
+    return sumScore(cards);
   }
 
   /**
-   * 根据“最后一回合赢家出的牌型”算倍率
+   * 根据“最后一回合首家出的牌型”算倍率
    */
   function calcMultiplierByWinningPlay(pattern, level) {
     // 普通牌型
     if (pattern.type === "single") return 2;
     if (pattern.type === "pair") return 4;
     if (pattern.type === "tractor") {
-      return Math.pow(2, pattern.length / 2) * 2;
+      const pairs = pattern.length / 2;
+      return Math.pow(2, pairs + 1);
     }
 
     // 甩牌
@@ -39,15 +43,16 @@
       if (pairRanks.length === 0) return 2;
 
       // 判断拖拉机
-      const tractors = Tractor.detectTractors(
-        pairRanks.map(r => ({ rank: r })),
-        level
-      );
+      const tractors = typeof Tractor?.detectTractors === "function"
+        ? Tractor.detectTractors(pairRanks.map(r => ({ rank: r })), level)
+        : [];
 
-      if (!tractors.length) return 4;
+      if (!tractors.length) {
+        return 4;
+      }
 
       const maxPairs = Math.max(...tractors.map(t => t.length));
-      return Math.pow(2, maxPairs) * 2;
+      return Math.pow(2, maxPairs + 1);
     }
 
     return 2;
