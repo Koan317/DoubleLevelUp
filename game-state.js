@@ -459,7 +459,8 @@ window.Game = (function () {
 
       state.phase = state.trumpSuit ? "twist" : "reveal";
 
-      if (shouldStartRevealCountdown()) {
+      const hasPresetRevealSequence = state.trumpReveal && !state.trumpReveal.reveal;
+      if (shouldStartRevealCountdown() && !hasPresetRevealSequence) {
         state.revealWindowOpen = true;
         startRevealCountdown(finalizeRevealWindow);
       } else {
