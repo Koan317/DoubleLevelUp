@@ -162,30 +162,6 @@
 }
 
 
-.banker-badge.kitty-north {
-    top: calc(50% - (var(--kitty-height) / 2) - var(--layout-gap) - var(--trick-pile-height) - var(--layout-gap) - var(--badge-height));
-    left: 50%;
-    transform: translateX(-50%) rotate(-6deg);
-}
-
-.banker-badge.kitty-south {
-    top: calc(50% + (var(--kitty-height) / 2) + var(--layout-gap) + var(--trick-pile-height) + var(--layout-gap));
-    left: 50%;
-    transform: translateX(-50%) rotate(-6deg);
-}
-
-.banker-badge.kitty-west {
-    top: 50%;
-    left: calc(50% - (var(--kitty-width) / 2) - var(--layout-gap) - var(--trick-pile-width) - var(--layout-gap) - var(--badge-width));
-    transform: translateY(-50%) rotate(-6deg);
-}
-
-.banker-badge.kitty-east {
-    top: 50%;
-    left: calc(50% + (var(--kitty-width) / 2) + var(--layout-gap) + var(--trick-pile-width) + var(--layout-gap));
-    transform: translateY(-50%) rotate(-6deg);
-}
-
 #kitty {
     position: absolute;
     left: 50%;

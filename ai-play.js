@@ -456,43 +456,11 @@ window.AI = (function () {
     return scored[0]?.cards || candidates[0] || [];
   }
 
-  function pickLowestCostCombo(candidates, state) {
-    return pickBy(
-      candidates,
-      cards => {
-        const pattern = Pattern.analyzePlay(cards, state);
-        const scoreValue = cards.reduce((sum, card) => sum + Score.cardScore(card), 0);
-        const power = pattern.power ?? 0;
-        const trumpCount = cards.filter(card => Rules.isTrump(card, state)).length;
-        return { scoreValue, power, trumpCount };
-      },
-      (a, b) => {
-        if (a.scoreValue !== b.scoreValue) return a.scoreValue - b.scoreValue;
-        if (a.trumpCount !== b.trumpCount) return a.trumpCount - b.trumpCount;
-        return a.power - b.power;
-      }
-    );
-  }
-
   function pickHighestPowerCombo(candidates, state) {
     return pickBy(
       candidates,
       cards => ({ power: Pattern.analyzePlay(cards, state).power ?? 0 }),
       (a, b) => b.power - a.power
-    );
-  }
-
-  function pickHighestScoreCombo(candidates, state) {
-    return pickBy(
-      candidates,
-      cards => ({
-        scoreValue: cards.reduce((sum, card) => sum + Score.cardScore(card), 0),
-        power: Pattern.analyzePlay(cards, state).power ?? 0
-      }),
-      (a, b) => {
-        if (a.scoreValue !== b.scoreValue) return b.scoreValue - a.scoreValue;
-        return b.power - a.power;
-      }
     );
   }
 
@@ -652,10 +620,6 @@ window.AI = (function () {
       const tractorRanks = detectTractorRanks(pairRanksBySuitType[suitType], suitType, state);
       return tractorRanks.size >= 2;
     });
-  }
-
-  function pickHighestPowerComboFromEnriched(candidates) {
-    return pickByEnriched(candidates, (a, b) => b.power - a.power);
   }
 
   function pickHighestScoreComboFromEnriched(candidates) {
