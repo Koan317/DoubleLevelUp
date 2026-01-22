@@ -3,6 +3,16 @@
 window.CardUI = (function () {
   const SUIT_ORDER = ["♠", "♥", "♣", "♦"];
   const DESCENDING_RANKS = ["A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3", "2"];
+  const SUIT_INDEX = Object.create(null);
+  const SIDE_RANK_INDEX = Object.create(null);
+  const TRUMP_RANK_CACHE = Object.create(null);
+
+  SUIT_ORDER.forEach((suit, index) => {
+    SUIT_INDEX[suit] = index;
+  });
+  DESCENDING_RANKS.forEach((rank, index) => {
+    SIDE_RANK_INDEX[rank] = index;
+  });
 
   function sortHandCards(a, b, state) {
     const keyA = handSortKey(a, state);
@@ -19,33 +29,50 @@ window.CardUI = (function () {
     const isTrump = Rules.isTrump(card, state);
     if (isTrump) {
       if (card.suit === "JOKER") {
-        return [0, card.rank === "BJ" ? 0 : 1, 0, 0];
+        return [0, card.rank === "BJ" ? 0 : 1, 0];
       }
       if (card.rank === state.level) {
         if (card.suit === state.trumpSuit) {
-          return [1, 0, 0, 0];
+          return [1, 0, 0];
         }
-        return [2, suitIndex(card.suit), 0, 0];
+        return [2, suitIndex(card.suit), 0];
       }
-      return [3, 0, trumpRankIndex(card, state), 0];
+      return [3, 0, trumpRankIndex(card, state)];
     }
-    return [4, suitIndex(card.suit), sideRankIndex(card.rank), 0];
+    return [4, suitIndex(card.suit), sideRankIndex(card.rank)];
   }
 
   function suitIndex(suit) {
-    const index = SUIT_ORDER.indexOf(suit);
-    return index === -1 ? SUIT_ORDER.length : index;
+    const index = SUIT_INDEX[suit];
+    return index === undefined ? SUIT_ORDER.length : index;
   }
 
   function trumpRankIndex(card, state) {
-    const filtered = DESCENDING_RANKS.filter(rank => rank !== state.level);
-    const index = filtered.indexOf(card.rank);
-    return index === -1 ? filtered.length : index;
+    const level = state.level;
+    let cached = TRUMP_RANK_CACHE[level];
+    if (!cached) {
+      const filtered = DESCENDING_RANKS.filter(rank => rank !== level);
+      const indexMap = Object.create(null);
+      filtered.forEach((rank, index) => {
+        indexMap[rank] = index;
+      });
+      cached = { indexMap, length: filtered.length };
+      TRUMP_RANK_CACHE[level] = cached;
+    }
+    const index = cached.indexMap[card.rank];
+    return index === undefined ? cached.length : index;
   }
 
   function sideRankIndex(rank) {
-    const index = DESCENDING_RANKS.indexOf(rank);
-    return index === -1 ? DESCENDING_RANKS.length : index;
+    const index = SIDE_RANK_INDEX[rank];
+    return index === undefined ? DESCENDING_RANKS.length : index;
+  }
+
+  function createCornerElement(positionClass, display) {
+    const corner = document.createElement("div");
+    corner.className = `corner ${positionClass}`;
+    corner.innerHTML = `<span class=\"rank\">${display.rank}</span><br><span class=\"suit\">${display.suit}</span>`;
+    return corner;
   }
 
   function createCardElement(card) {
@@ -53,12 +80,8 @@ window.CardUI = (function () {
     const display = cardDisplay(card);
     el.className = `card ${display.isRed ? "red" : ""}`.trim();
 
-    const top = document.createElement("div");
-    top.className = "corner top";
-    top.innerHTML = `<span class=\"rank\">${display.rank}</span><br><span class=\"suit\">${display.suit}</span>`;
-    const bottom = document.createElement("div");
-    bottom.className = "corner bottom";
-    bottom.innerHTML = `<span class=\"rank\">${display.rank}</span><br><span class=\"suit\">${display.suit}</span>`;
+    const top = createCornerElement("top", display);
+    const bottom = createCornerElement("bottom", display);
     const center = document.createElement("div");
     center.className = "center";
     center.textContent = display.center;
@@ -97,7 +120,7 @@ window.CardUI = (function () {
   }
 
   function isSuitKey(key) {
-    return key === "♠" || key === "♥" || key === "♣" || key === "♦";
+    return SUIT_INDEX[key] !== undefined;
   }
 
   return {
