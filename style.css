@@ -4,6 +4,10 @@
     font-size: 16px;
 }
 
+:root {
+    --card-overlap: -40px;
+}
+
 .hidden {
     display: none !important;
 }
@@ -261,7 +265,7 @@
 }
 
 .trick-pile .card {
-    margin-left: -40px;
+    margin-left: var(--card-overlap);
     transform-origin: center center;
 }
 
@@ -308,7 +312,7 @@
     top: auto;
     left: auto;
     transform: none;
-    margin-left: -40px;
+    margin-left: var(--card-overlap);
 }
 
 #kitty.kitty-stacked .kitty-faceup:first-child {
@@ -374,12 +378,6 @@
     cursor: pointer;
 }
 
-.trump-action.disabled:hover {
-    color: #9a9a9a;
-    border-color: rgba(0, 0, 0, 0.2);
-    background: rgba(180, 180, 180, 0.8);
-    cursor: default;
-}
 
 .trump-action.enabled {
     background: rgba(255, 255, 255, 0.95);
@@ -500,7 +498,7 @@
     border-radius: 12px;
     max-width: 90%;
     overflow: hidden;
-    --hand-card-overlap: -40px;
+    --hand-card-overlap: var(--card-overlap);
     --hand-group-gap: 26px;
 }
 
@@ -527,7 +525,7 @@
 }
 
 #table .played .card {
-    margin-left: -40px;
+    margin-left: var(--card-overlap);
 }
 
 #table .played .card:first-child {
@@ -535,68 +533,32 @@
 }
 
 #table .played .card.play-animate {
-    animation-duration: 0.5s;
-    animation-fill-mode: both;
+    animation: play-in 0.5s both;
+    transform: translate(var(--from-x, 0), var(--from-y, 0)) scale(0.85);
+    opacity: 0;
 }
 
-#table .played.south .card.play-animate {
-    animation-name: play-from-south;
-}
-
-#table .played.north .card.play-animate {
-    animation-name: play-from-north;
-}
-
-#table .played.west .card.play-animate {
-    animation-name: play-from-west;
-}
-
-#table .played.east .card.play-animate {
-    animation-name: play-from-east;
-}
-
-@keyframes play-from-south {
-    from {
-        transform: translateY(80px) scale(0.85);
-        opacity: 0;
-    }
+@keyframes play-in {
     to {
-        transform: translateY(0) scale(1);
+        transform: translate(0, 0) scale(1);
         opacity: 1;
     }
 }
 
-@keyframes play-from-north {
-    from {
-        transform: translateY(-80px) scale(0.85);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0) scale(1);
-        opacity: 1;
-    }
+.played.south {
+    --from-y: 80px;
 }
 
-@keyframes play-from-west {
-    from {
-        transform: translateX(-80px) scale(0.85);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0) scale(1);
-        opacity: 1;
-    }
+.played.north {
+    --from-y: -80px;
 }
 
-@keyframes play-from-east {
-    from {
-        transform: translateX(80px) scale(0.85);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0) scale(1);
-        opacity: 1;
-    }
+.played.west {
+    --from-x: -80px;
+}
+
+.played.east {
+    --from-x: 80px;
 }
 
 #hand .card.selected {

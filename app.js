@@ -1,5 +1,9 @@
 ﻿// app.js
 
+if (window.UIDom?.buildTableStaticDOM) {
+  window.UIDom.buildTableStaticDOM();
+}
+
 document.getElementById("themeToggle").onclick = () => {
   document.body.classList.toggle("dark");
   document.body.classList.toggle("light");
