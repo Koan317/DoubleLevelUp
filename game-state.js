@@ -98,10 +98,15 @@ window.Game = (function () {
     Render.renderCountdown(null);
   }
 
-  function startRevealCountdown(onComplete, durationSeconds = 6) {
+  function startRevealCountdown(onComplete, durationSeconds = 6, options = {}) {
+    const { silent = false } = options;
     clearRevealCountdown();
     state.revealCountdown = durationSeconds;
-    Render.renderCountdown(state.revealCountdown);
+    if (!silent) {
+      Render.renderCountdown(state.revealCountdown);
+    } else {
+      Render.renderCountdown(null);
+    }
     const tick = () => {
       if (state.revealCountdown === null) return;
       if (state.revealCountdown === 0) {
@@ -110,7 +115,9 @@ window.Game = (function () {
         return;
       }
       state.revealCountdown -= 1;
-      Render.renderCountdown(state.revealCountdown);
+      if (!silent) {
+        Render.renderCountdown(state.revealCountdown);
+      }
       revealCountdownTimer = setTimeout(tick, 1000);
     };
     revealCountdownTimer = setTimeout(tick, 1000);
@@ -165,6 +172,11 @@ window.Game = (function () {
     });
   }
 
+  function renderTurnArrowForState() {
+    const shouldShowArrow = (state.phase === "reveal" && state.presetReveal);
+    Render.renderTurnArrow(shouldShowArrow ? state.turn : null);
+  }
+
   function beginKittyPhase(recipientIndex = (state.trumpReveal?.player ?? 0)) {
     if (!state.trumpReveal) return;
     state.phase = "kitty";
@@ -178,6 +190,7 @@ window.Game = (function () {
     Render.renderKitty(state);
     Render.renderStatus(state);
     Render.renderReveal(state);
+    renderTurnArrowForState();
     Render.setPlayButtonVisible(recipientIndex === 0);
     Render.setPlayButtonLabel("扣牌");
     Render.animateKittyTransfer(recipientIndex, () => {
@@ -237,7 +250,10 @@ window.Game = (function () {
   function scheduleAiTwist(twistCandidates) {
     clearTwistWindowTimers();
     twistCandidates.forEach(({ playerIndex }) => {
-      const delay = 500 + Math.random() * 4500;
+      const fastMode = state.revealCountdown <= 1;
+      const minDelay = fastMode ? 100 : 500;
+      const maxDelay = fastMode ? 900 : 4500;
+      const delay = minDelay + Math.random() * (maxDelay - minDelay);
       const timer = setTimeout(() => {
         if (state.phase !== "twist") return;
         if (!state.revealCountdown && state.revealCountdown !== 0) return;
@@ -279,9 +295,13 @@ window.Game = (function () {
       }, 200);
     } else {
       state.revealWindowOpen = humanCanTwist;
-      startRevealCountdown(() => {
-        endTwistPhase();
-      }, 6);
+      startRevealCountdown(
+        () => {
+          endTwistPhase();
+        },
+        humanCanTwist ? 6 : 1,
+        { silent: !humanCanTwist }
+      );
       scheduleAiTwist(twistCandidates.filter(entry => entry.playerIndex !== 0));
     }
 
@@ -301,6 +321,7 @@ window.Game = (function () {
 
   function startPlayFromBanker() {
     state.phase = "play";
+    Render.renderTurnArrow(null);
     state.turn = state.trumpReveal?.player ?? 0;
     Render.setPlayButtonLabel("出牌");
     Render.setPlayButtonVisible(true);
@@ -396,6 +417,7 @@ window.Game = (function () {
     Render.renderStatus(state);
     Render.renderReveal(state);
     Render.renderTrickPiles(state, onPileClick);
+    renderTurnArrowForState();
 
     const finishDeal = () => {
       const finalizeRevealWindow = () => {
@@ -442,6 +464,8 @@ window.Game = (function () {
         startRevealCountdown(finalizeRevealWindow);
       } else {
         state.revealWindowOpen = false;
+        clearRevealCountdown();
+        Render.renderCountdown(null);
         finalizeRevealWindow();
         return;
       }
@@ -721,6 +745,7 @@ window.Game = (function () {
       renderTrumpActionsWith({ revealWindowOpen: false, allowPendingReveal: false });
       Render.renderStatus(state);
       Render.renderReveal(state);
+      renderTurnArrowForState();
       beginKittyPhase(state.trumpReveal?.player ?? 0);
       return;
     }
@@ -733,10 +758,13 @@ window.Game = (function () {
       state.presetReveal = null;
       clearRevealCountdown();
       resolveKittyReveal();
+      renderTurnArrowForState();
       return;
     }
 
     const currentPlayer = seq.order[seq.pos];
+    // 亮主阶段箭头指向当前顺位玩家
+    state.turn = currentPlayer;
 
     // 这一顺位可亮主的等级（庄家队等级 / 闲家队等级）
     const levelForThisPos = getPresetRevealLevelForPos(seq.pos);
@@ -749,6 +777,7 @@ window.Game = (function () {
     renderTrumpActionsWith({ revealWindowOpen: state.revealWindowOpen, allowPendingReveal: false, revealLevelOverride: levelForThisPos });
     Render.renderStatus(state);
     Render.renderReveal(state);
+    renderTurnArrowForState();
 
     // === AI 独享顺位：不给 6 秒倒计时，只给 1 秒缓冲 ===
     if (currentPlayer !== 0) {
@@ -775,6 +804,7 @@ window.Game = (function () {
           renderTrumpActionsWith({ revealWindowOpen: false, allowPendingReveal: false });
           Render.renderStatus(state);
           Render.renderReveal(state);
+          renderTurnArrowForState();
           beginKittyPhase(state.trumpReveal?.player ?? currentPlayer);
           return;
         }
@@ -891,6 +921,7 @@ window.Game = (function () {
       clearRevealCountdown();
       state.revealWindowOpen = false;
       renderTrumpActionsWith({ revealWindowOpen: false, allowPendingReveal: false });
+      renderTurnArrowForState();
     }
     state.pendingRevealKey = null;
     if (wasTwistPhase) {

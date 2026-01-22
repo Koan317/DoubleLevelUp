@@ -132,6 +132,20 @@
     display: none;
 }
 
+#turn-arrow {
+    position: absolute;
+    font-size: 34px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.turn-arrow.hidden {
+    display: none;
+}
+
 #banker-badge {
     position: absolute;
     padding: 6px 12px;

@@ -429,6 +429,63 @@ window.Render = (function () {
     el.classList.remove("hidden");
   }
 
+  function renderTurnArrow(playerIndex) {
+    const table = document.getElementById("table");
+    if (!table) return;
+    let arrow = document.getElementById("turn-arrow");
+    if (!arrow) {
+      arrow = document.createElement("div");
+      arrow.id = "turn-arrow";
+      arrow.className = "turn-arrow hidden";
+      arrow.textContent = "▲";
+      table.appendChild(arrow);
+    }
+    if (playerIndex === null || playerIndex === undefined) {
+      arrow.classList.add("hidden");
+      return;
+    }
+    const area = ["south", "west", "north", "east"][playerIndex];
+    const target = document.querySelector(`.${area}`);
+    if (!target) {
+      arrow.classList.add("hidden");
+      return;
+    }
+    const tableRect = table.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const offset = 12;
+    let top = 0;
+    let left = 0;
+    let rotation = 0;
+
+    switch (area) {
+      case "north":
+        top = targetRect.bottom - tableRect.top + offset;
+        left = targetRect.left - tableRect.left + targetRect.width / 2;
+        rotation = 0;
+        break;
+      case "south":
+        top = targetRect.top - tableRect.top - offset;
+        left = targetRect.left - tableRect.left + targetRect.width / 2;
+        rotation = 180;
+        break;
+      case "west":
+        top = targetRect.top - tableRect.top + targetRect.height / 2;
+        left = targetRect.right - tableRect.left + offset;
+        rotation = -90;
+        break;
+      case "east":
+        top = targetRect.top - tableRect.top + targetRect.height / 2;
+        left = targetRect.left - tableRect.left - offset;
+        rotation = 90;
+        break;
+    }
+
+    arrow.style.top = `${top}px`;
+    arrow.style.left = `${left}px`;
+    arrow.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+    arrow.classList.remove("hidden");
+  }
+
   function renderRuleMessage(message) {
     const el = document.getElementById("rule-message");
     if (!el) return;
@@ -593,6 +650,7 @@ window.Render = (function () {
     renderTrumpActions,
     renderReveal,
     renderCountdown,
+    renderTurnArrow,
     renderKitty,
     animateKittyTransfer,
     animateKittyReturn,
